@@ -1,0 +1,2616 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Bannerlord 2D</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=MedievalSharp&family=Inter:wght@400;600;700&display=swap');
+        
+        html, body {
+            overscroll-behavior: none;
+            touch-action: none;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .font-medieval {
+            font-family: 'MedievalSharp', cursive;
+        }
+
+        /* Prevent flashing on click for buttons */
+        button, a {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Custom scrollbar for log */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #27272a; /* zinc-800 */
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #52525b; /* zinc-600 */
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #71717a; /* zinc-500 */
+        }
+        
+        /* Prevent canvas context menu */
+        #gameCanvas {
+            touch-action: none;
+            cursor: grab;
+        }
+        #gameCanvas:active {
+            cursor: grabbing;
+        }
+        
+        /* Quantity Input */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+
+    </style>
+</head>
+<body class="bg-zinc-900 text-gray-200 h-full flex flex-col items-center justify-center p-2 md:p-4 overflow-hidden">
+
+    <div id="title-screen" class="fixed inset-0 bg-zinc-900 z-50 flex flex-col items-center justify-center text-center p-4">
+        <h1 class="font-medieval text-6xl md:text-8xl text-yellow-400 mb-4" style="text-shadow: 2px 2px #000;">Bannerlord 2D</h1>
+        <p class="text-zinc-400 mb-12 max-w-lg">A single-player, persistent world sandbox. Trade goods, build your army, and conquer the realm. (Or just get rich).</p>
+        <div class="space-y-4 w-full max-w-xs">
+            <button id="new-game-button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg text-2xl transition-transform hover:scale-105">New Game</button>
+            <button id="load-game-button" class="w-full bg-zinc-600 hover:bg-zinc-700 text-white font-bold py-4 px-6 rounded-lg text-2xl transition-transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100">Load Game</button>
+        </div>
+    </div>
+
+    <div class="w-full max-w-7xl h-full flex flex-col md:flex-row gap-4 relative">
+
+        <!-- Left Panel: Game Canvas (Now full width) -->
+        <div class="flex-grow flex-shrink-[2] h-full bg-zinc-800 rounded-lg shadow-xl overflow-hidden border-2 border-zinc-700 relative">
+            <canvas id="gameCanvas" class="w-full h-full bg-black"></canvas> <!-- Changed bg to black for loading -->
+            
+            <!-- UI Overlay -->
+            <div id="ui-overlay" class="hidden absolute inset-0 p-4 pointer-events-none grid grid-cols-3 grid-rows-3">
+                
+                <!-- Top-Left: Stats -->
+                <div class="col-start-1 row-start-1 pointer-events-auto flex gap-2">
+                    <button id="stats-button" class="bg-zinc-800 bg-opacity-80 hover:bg-opacity-100 border border-zinc-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                        Stats
+                    </button>
+                    <button id="kingdoms-button" class="bg-zinc-800 bg-opacity-80 hover:bg-opacity-100 border border-zinc-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                        Kingdoms
+                    </button>
+                </div>
+                
+                <!-- Top-Center: Time -->
+                <div class="col-start-2 row-start-1 justify-self-center pointer-events-auto">
+                    <div id="time-display" class="bg-zinc-800 bg-opacity-80 border border-zinc-600 text-white font-bold py-2 px-4 rounded-lg transition-colors text-center">
+                        <span id="time-day">Day 1</span>
+                        <span id="time-clock" class="ml-2 font-mono">12:00</span>
+                    </div>
+                </div>
+
+                <!-- Top-Right: Log -->
+                <div class="col-start-3 row-start-1 justify-self-end pointer-events-auto">
+                     <button id="log-button" class="bg-zinc-800 bg-opacity-80 hover:bg-opacity-100 border border-zinc-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                        Log
+                    </button>
+                </div>
+
+                <!-- Bottom-Right: Time Control -->
+                <div class="col-start-3 row-start-3 justify-self-end self-end pointer-events-auto">
+                    <button id="time-control-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors w-20 text-xl font-mono">
+                        ▶
+                    </button>
+                </div>
+
+            </div>
+        </div>
+        
+    </div>
+
+    <!-- Stats Modal -->
+    <div id="stats-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 overflow-y-auto z-50">
+        <div class="bg-zinc-800 rounded-lg shadow-2xl border border-zinc-600 w-full max-w-md p-6">
+            <h2 class="font-medieval text-2xl text-yellow-400 mb-3">Player Stats</h2>
+            <div class="space-y-2 mb-6">
+                <div class="flex justify-between">
+                    <span>Day:</span>
+                    <span id="day-stat" class="font-semibold">1</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Gold:</span>
+                    <span id="gold-stat" class="font-semibold text-yellow-500">1000 G</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Army Size:</span>
+                    <span id="army-stat" class="font-semibold">10</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Army Attack:</span>
+                    <span id="attack-stat" class="font-semibold">10</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Army Defense:</span>
+                    <span id="defense-stat" class="font-semibold">10</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Speed (units/hr):</span>
+                    <span id="speed-stat" class="font-semibold">18000</span>
+                </div>
+            </div>
+            
+            <h3 class="font-medieval text-xl text-yellow-400 mb-3 border-t border-zinc-600 pt-4">Inventory</h3>
+            <div id="inventory-stat" class="space-y-1 text-zinc-300 mb-6 min-h-[40px]">
+                <p class="text-zinc-500">No goods.</p>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-3 pt-6 mt-6 border-t border-zinc-600">
+                 <button id="save-game-button" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">Save</button>
+                 <button id="load-game-button-modal" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">Load</button>
+            </div>
+
+            <button id="stats-close-button" class="w-full bg-zinc-600 hover:bg-zinc-700 text-white font-bold py-3 px-4 rounded-lg transition-colors mt-3">
+                Close
+            </button>
+        </div>
+    </div>
+    
+    <!-- Log Modal -->
+    <div id="log-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+        <div class="bg-zinc-800 rounded-lg shadow-2xl border border-zinc-600 w-full max-w-md p-6 flex flex-col h-3/4">
+             <h2 class="font-medieval text-2xl text-blue-400 mb-3">Game Log</h2>
+            <div id="messageLog" class="flex-grow text-sm space-y-2 overflow-y-auto pr-2 text-zinc-300 custom-scrollbar min-h-0 mb-6">
+                <!-- Messages will be added here -->
+            </div>
+            <button id="log-close-button" class="w-full bg-zinc-600 hover:bg-zinc-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                Close
+            </button>
+        </div>
+    </div>
+    
+    <!-- Kingdoms Modal -->
+    <div id="kingdoms-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+        <div class="bg-zinc-800 rounded-lg shadow-2xl border border-zinc-600 w-full max-w-4xl p-6 flex flex-col max-h-[90vh]">
+             <h2 class="font-medieval text-3xl text-yellow-400 mb-4">Kingdoms of the Realm</h2>
+             <div id="kingdoms-content" class="flex-grow overflow-y-auto custom-scrollbar pr-2">
+                <!-- Content generated by JS -->
+             </div>
+            <button id="kingdoms-close-button" class="w-full bg-zinc-600 hover:bg-zinc-700 text-white font-bold py-3 px-4 rounded-lg transition-colors mt-4">
+                Close
+            </button>
+        </div>
+    </div>
+
+
+    <!-- Modal: Town -->
+    <div id="town-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50 overflow-y-auto">
+        <div class="bg-zinc-800 rounded-lg shadow-2xl border border-zinc-600 w-full max-w-2xl p-6">
+            <div class="flex justify-between items-start">
+                 <div>
+                    <h2 id="town-name" class="font-medieval text-3xl text-yellow-400 mb-1 inline">Town Name</h2>
+                    <span id="town-faction" class="font-medieval text-xl ml-4">Faction</span>
+                    <div class="flex gap-4 text-zinc-300 mb-4 text-sm">
+                        <span>Level: <span id="town-level" class="font-semibold text-white">1</span></span>
+                        <span>Treasury: <span id="town-treasury" class="font-semibold text-yellow-500">0 G</span></span>
+                        <span>Garrison: <span id="town-garrison-size" class="font-semibold text-white">0</span></span>
+                    </div>
+                 </div>
+                 <div id="town-tabs" class="flex border-b border-zinc-700">
+                    <button class="town-tab-button px-4 py-2 bg-zinc-700 text-white rounded-t-lg" data-tab="market">Market</button>
+                    <button class="town-tab-button px-4 py-2 text-zinc-400" data-tab="recruit">Recruit</button>
+                    <button class="town-tab-button px-4 py-2 text-zinc-400" data-tab="politics">Politics</button>
+                </div>
+            </div>
+
+            <!-- Market Tab -->
+            <div id="town-market-tab" class="town-tab-content">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                    <div>
+                        <h3 class="font-medieval text-lg text-yellow-400 mb-2">Town Market (Buy)</h3>
+                        <div id="town-buy-list" class="space-y-2 text-zinc-300 min-h-[40px] bg-zinc-900 p-3 rounded max-h-60 overflow-y-auto custom-scrollbar">
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="font-medieval text-lg text-green-400 mb-2">Your Inventory (Sell)</h3>
+                        <div id="town-sell-list" class="space-y-2 text-zinc-300 min-h-[40px] bg-zinc-900 p-3 rounded max-h-60 overflow-y-auto custom-scrollbar">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recruit Tab -->
+            <div id="town-recruit-tab" class="town-tab-content hidden">
+                <div class="border-t border-zinc-700 pt-4 mt-4">
+                    <h3 class="font-medieval text-lg text-yellow-400 mb-2">Recruit Troops</h3>
+                    <div id="town-recruitment-options" class="space-y-4">
+                        <!-- Recruitment options will be added here -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Politics Tab -->
+            <div id="town-politics-tab" class="town-tab-content hidden">
+                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                    <div class="bg-zinc-900 p-3 rounded">
+                        <h3 class="font-medieval text-lg text-blue-400 mb-2">Diplomatic Relations</h3>
+                        <div id="town-relations-list" class="space-y-1 text-zinc-300 text-sm"></div>
+                    </div>
+                    <div class="bg-zinc-900 p-3 rounded">
+                        <h3 class="font-medieval text-lg text-amber-400 mb-2">Local Gossip</h3>
+                        <div id="town-gossip-list" class="space-y-2 text-zinc-400 text-sm italic"></div>
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="mt-6 space-y-3">
+                <button id="leave-town-button" class="w-full bg-zinc-600 hover:bg-zinc-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                    Leave Town
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal: Village -->
+    <div id="village-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50 overflow-y-auto">
+        <div class="bg-zinc-800 rounded-lg shadow-2xl border border-zinc-600 w-full max-w-md p-6">
+            <h2 id="village-name" class="font-medieval text-3xl text-yellow-600 mb-2">Village Name</h2>
+            <div class="flex justify-between text-zinc-300 mb-4">
+                <span>Level: <span id="village-level" class="font-semibold text-white">1</span></span>
+                <span>Owner: <span id="village-faction" class="font-semibold">Faction</span></span>
+            </div>
+            <p id="village-production-text" class="mb-4 text-zinc-300">This village produces grain.</p>
+            
+            <div class="border-t border-zinc-700 pt-4">
+                <h3 class="font-medieval text-lg text-yellow-400 mb-2">Buy Goods</h3>
+                <div id="village-buy-options">
+                    <!-- Buy options go here -->
+                </div>
+            </div>
+
+            <div class="mt-6 space-y-3">
+                <button id="leave-village-button" class="w-full bg-zinc-600 hover:bg-zinc-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                    Leave Village
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Modal: Combat Report -->
+    <div id="combat-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+        <div class="bg-zinc-800 rounded-lg shadow-2xl border border-zinc-600 w-full max-w-lg p-6 flex flex-col max-h-[90vh]">
+            <h2 id="combat-title" class="font-medieval text-3xl text-center mb-4">Battle Report</h2>
+            <div id="combat-result" class="text-2xl font-bold text-center mb-4"></div>
+            <div class="grid grid-cols-2 gap-x-4 mb-4">
+                <div class="text-center">
+                    <h3 class="font-semibold text-blue-400">Your Forces</h3>
+                    <p id="combat-player-party" class="text-zinc-300"></p>
+                </div>
+                <div class="text-center">
+                    <h3 class="font-semibold text-red-400">Enemy Forces</h3>
+                    <p id="combat-enemy-party" class="text-zinc-300"></p>
+                </div>
+            </div>
+            <div class="bg-zinc-900 rounded p-3 mb-4 space-y-1 text-sm overflow-y-auto custom-scrollbar flex-grow" id="combat-log">
+                <!-- Combat log entries go here -->
+            </div>
+            <div class="grid grid-cols-2 gap-x-4 text-center mt-4">
+                <div>
+                    <h3 class="font-semibold text-blue-400">Your Losses</h3>
+                    <p id="combat-player-losses" class="text-zinc-300"></p>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-red-400">Enemy Losses</h3>
+                    <p id="combat-enemy-losses" class="text-zinc-300"></p>
+                </div>
+            </div>
+            <button id="combat-close-button" class="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                Continue
+            </button>
+        </div>
+    </div>
+
+    <script type="module">
+        // --- SECTION 1: CONFIGURATION ---
+        const GRID_SIZE = 100;
+        const TERRAIN_TYPES = {
+            plains: { color: '#166534', name: 'Plains' },
+            forest: { color: '#14532d', name: 'Forest' },
+            mountain: { color: '#57534e', name: 'Mountains' },
+            water: { color: '#1d4ed8', name: 'Water' }
+        };
+        const TROOP_HP = 5;
+        const TROOP_TYPES = {
+            'spearman':  { name: 'Spearman',  atk: 1, def: 1, hp: TROOP_HP, cost: 15, upkeep: 1, power: 3 },
+            'swordsman': { name: 'Swordsman', atk: 2, def: 0, hp: TROOP_HP, cost: 25, upkeep: 2, power: 4 },
+            'looter':    { name: 'Looter',    atk: 2, def: 0, hp: TROOP_HP, cost: 0, upkeep: 0, power: 3 },
+            'wild_beast':{ name: 'Wild Beast',atk: 3, def: 1, hp: TROOP_HP * 1.5, cost: 0, upkeep: 0, power: 5 }
+        };
+        const GOODS = {
+            'grain':   { name: 'Grain',   basePrice: 10, type: 'food',     idealStock: 200 },
+            'butter':  { name: 'Butter',  basePrice: 20, type: 'food',     idealStock: 100 },
+            'cheese':  { name: 'Cheese',  basePrice: 18, type: 'food',     idealStock: 100 },
+            'meat':    { name: 'Meat',    basePrice: 22, type: 'food',     idealStock: 100 },
+            'horses':  { name: 'Horses',  basePrice: 50, type: 'military', idealStock: 50 },
+            'ore':     { name: 'Iron Ore',basePrice: 30, type: 'resource', idealStock: 150 },
+            'wood':    { name: 'Wood',    basePrice: 15, type: 'resource', idealStock: 200 },
+            'leather': { name: 'Leather', basePrice: 25, type: 'resource', idealStock: 100 },
+            'bread':   { name: 'Bread',   basePrice: 16, type: 'food',     idealStock: 150 },
+            'tools':   { name: 'Tools',   basePrice: 75, type: 'industrial', idealStock: 50 },
+            'armor':   { name: 'Armor',   basePrice: 90, type: 'military', idealStock: 30 },
+        };
+        const FACTIONS = {
+            'player':   { name: 'Player',         color: '#3b82f6' },
+            'vikingr':  { name: 'Vikingr',        color: '#60a5fa', aggressiveness: 0.7, honor: 0.4, mercantilism: 0.5 },
+            'sarran':   { name: 'Sarran',         color: '#f59e0b', aggressiveness: 0.6, honor: 0.6, mercantilism: 0.7 },
+            'vaegir':   { name: 'Vaegir',         color: '#a78bfa', aggressiveness: 0.4, honor: 0.8, mercantilism: 0.4 },
+            'rhodok':   { name: 'Rhodok',         color: '#22c55e', aggressiveness: 0.5, honor: 0.5, mercantilism: 0.8 },
+            'bandit':   { name: 'Bandits',        color: '#ef4444' },
+            'beast':    { name: 'Beasts',         color: '#581c87' },
+            'caravan':  { name: 'Caravan',        color: '#facc15' },
+        };
+        const BASE_PLAYER_SPEED = 18000;
+        const REAL_SECONDS_PER_GAME_HOUR = 90;
+        const MIN_ZOOM = 0.02;
+        const MAX_ZOOM = 3.0;
+        const MAP_DIMENSION = 100000;
+
+        // --- SECTION 2: UTILITY CLASSES ---
+        
+        class Pathfinder {
+            static isLineOfSightClear(startX, startY, endX, endY, worldMap) {
+                const dist = this.getDistance(startX, startY, endX, endY);
+                const steps = Math.floor(dist / (GRID_SIZE / 2)); 
+                if (steps <= 1) return true;
+                const dx = (endX - startX) / steps;
+                const dy = (endY - startY) / steps;
+                for (let i = 1; i < steps; i++) {
+                    if (worldMap.isImpassable(worldMap.getTerrainAt(startX + dx * i, startY + dy * i))) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            static smoothPath(path, worldMap) {
+                if (!path || path.length < 3) return path;
+                let smoothedPath = [path[0]];
+                let anchorIndex = 0;
+                for (let i = 2; i < path.length; i++) {
+                    const anchorPoint = path[anchorIndex];
+                    const testPoint = path[i];
+                    if (!this.isLineOfSightClear(anchorPoint[0], anchorPoint[1], testPoint[0], testPoint[1], worldMap)) {
+                        smoothedPath.push(path[i - 1]);
+                        anchorIndex = i - 1;
+                    }
+                }
+                smoothedPath.push(path[path.length - 1]);
+                return smoothedPath;
+            }
+
+            static findPathAStar(startX, startY, endX, endY, worldMap) {
+                const startNode = { x: Math.floor(startX / GRID_SIZE), y: Math.floor(startY / GRID_SIZE) };
+                const endNode = { x: Math.floor(endX / GRID_SIZE), y: Math.floor(endY / GRID_SIZE) };
+                const openSet = [], closedSet = new Set(), cameFrom = new Map(), gScore = new Map(), fScore = new Map();
+                const nodeKey = (node) => `${node.x},${node.y}`;
+                gScore.set(nodeKey(startNode), 0);
+                fScore.set(nodeKey(startNode), this.getDistance(startNode.x, startNode.y, endNode.x, endNode.y));
+                openSet.push({ ...startNode, f: fScore.get(nodeKey(startNode)) });
+                while (openSet.length > 0) {
+                    openSet.sort((a, b) => a.f - b.f);
+                    const current = openSet.shift();
+                    if (current.x === endNode.x && current.y === endNode.y) {
+                        const total_path = []; let temp = current;
+                        while (temp) { total_path.unshift([temp.x * GRID_SIZE + GRID_SIZE / 2, temp.y * GRID_SIZE + GRID_SIZE / 2]); temp = cameFrom.get(nodeKey(temp)); }
+                        total_path.push([endX, endY]);
+                        return this.smoothPath(total_path, worldMap);
+                    }
+                    closedSet.add(nodeKey(current));
+                    for (let dx = -1; dx <= 1; dx++) {
+                        for (let dy = -1; dy <= 1; dy++) {
+                            if (dx === 0 && dy === 0) continue;
+                            const neighbor = { x: current.x + dx, y: current.y + dy };
+                            if (neighbor.x < 0 || neighbor.x >= worldMap.gridWidth || neighbor.y < 0 || neighbor.y >= worldMap.gridHeight) continue;
+                            const terrainType = worldMap.getTerrainAt(neighbor.x * GRID_SIZE, neighbor.y * GRID_SIZE);
+                            if (worldMap.isImpassable(terrainType)) continue;
+
+                            // FIX: Prevent cutting corners of impassable tiles
+                            if (dx !== 0 && dy !== 0) { // It's a diagonal move
+                                const adjacent1Terrain = worldMap.getTerrainAt((current.x + dx) * GRID_SIZE + GRID_SIZE/2, current.y * GRID_SIZE + GRID_SIZE/2);
+                                const adjacent2Terrain = worldMap.getTerrainAt(current.x * GRID_SIZE + GRID_SIZE/2, (current.y + dy) * GRID_SIZE + GRID_SIZE/2);
+                                if (worldMap.isImpassable(adjacent1Terrain) || worldMap.isImpassable(adjacent2Terrain)) {
+                                    continue; // This diagonal move is blocked
+                                }
+                            }
+
+                            if (closedSet.has(nodeKey(neighbor))) continue;
+                            const tentative_gScore = gScore.get(nodeKey(current)) + this.getDistance(current.x, current.y, neighbor.x, neighbor.y);
+                            if (!openSet.some(n => n.x === neighbor.x && n.y === neighbor.y)) openSet.push(neighbor);
+                            else if (tentative_gScore >= (gScore.get(nodeKey(neighbor)) || Infinity)) continue;
+                            cameFrom.set(nodeKey(neighbor), current);
+                            gScore.set(nodeKey(neighbor), tentative_gScore);
+                            const h = this.getDistance(neighbor.x, neighbor.y, endNode.x, endNode.y);
+                            const f = tentative_gScore + h;
+                            fScore.set(nodeKey(neighbor), f);
+                            const openNode = openSet.find(n => n.x === neighbor.x && n.y === neighbor.y);
+                            if (openNode) openNode.f = f;
+                        }
+                    }
+                }
+                console.warn("A* path not found!");
+                return [[endX, endY]];
+            }
+            
+            static getDistance(x1, y1, x2, y2) {
+                return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+            }
+        }
+
+        class DiplomacyManager {
+            constructor() {
+                this.relations = {}; // { factionA: { factionB: 0 } }
+                this.states = {};    // { factionA: { factionB: 'neutral' } }
+                this.warExhaustion = {}; // { factionA: { factionB: 0 } }
+                this.factionIds = [];
+            }
+
+            initialize(factions) {
+                this.factionIds = Object.keys(factions).filter(id => id !== 'bandit' && id !== 'beast' && id !== 'caravan');
+                
+                // FIX: Ensure structures are reset properly
+                this.relations = {};
+                this.states = {};
+                this.warExhaustion = {};
+
+                for (const f1 of this.factionIds) {
+                    for (const f2 of this.factionIds) {
+                        if (f1 === f2) continue;
+
+                        // FIX: Use the sorted pair logic consistently
+                        const [key1, key2] = this._getSortedPair(f1, f2);
+
+                        // Initialize the nested objects if they don't exist
+                        if (!this.relations[key1]) this.relations[key1] = {};
+                        if (!this.states[key1]) this.states[key1] = {};
+                        if (!this.warExhaustion[key1]) this.warExhaustion[key1] = {};
+
+                        // Set the values only if not already set (prevents overwriting as we iterate over pairs)
+                        if (this.relations[key1][key2] === undefined) {
+                            this.relations[key1][key2] = 0;
+                            this.states[key1][key2] = 'neutral';
+                            this.warExhaustion[key1][key2] = 0;
+                        }
+                    }
+                }
+            }
+
+            _getSortedPair(factionA, factionB) {
+                return [factionA, factionB].sort();
+            }
+
+            getRelation(factionA, factionB) {
+                const [f1, f2] = this._getSortedPair(factionA, factionB);
+                return this.relations[f1]?.[f2] ?? 0;
+            }
+            
+            getWarExhaustion(factionA, factionB) {
+                const [f1, f2] = this._getSortedPair(factionA, factionB);
+                return this.warExhaustion[f1]?.[f2] ?? 0;
+            }
+
+            modifyRelation(factionA, factionB, amount, game) {
+                if (factionA === factionB || !this.factionIds.includes(factionA) || !this.factionIds.includes(factionB)) return;
+                const [f1, f2] = this._getSortedPair(factionA, factionB);
+                if (this.relations[f1] === undefined) this.relations[f1] = {};
+                
+                const currentRelation = this.relations[f1][f2] || 0;
+                const newRelation = Math.max(-100, Math.min(100, currentRelation + amount));
+                this.relations[f1][f2] = newRelation;
+
+                const currentState = this.getDiplomaticState(f1, f2);
+                if (newRelation <= -50 && currentState !== 'war') {
+                    this.setDiplomaticState(f1, f2, 'war', game);
+                } else if (newRelation >= 0 && currentState === 'war') {
+                    this.setDiplomaticState(f1, f2, 'neutral', game);
+                }
+            }
+            
+            addWarExhaustion(factionA, factionB, amount) {
+                if (factionA === factionB) return;
+                const [f1, f2] = this._getSortedPair(factionA, factionB);
+                if (this.warExhaustion[f1] === undefined) this.warExhaustion[f1] = {};
+                this.warExhaustion[f1][f2] = (this.warExhaustion[f1][f2] || 0) + amount;
+            }
+
+            getDiplomaticState(factionA, factionB) {
+                if (factionA === factionB) return 'alliance';
+                const [f1, f2] = this._getSortedPair(factionA, factionB);
+                return this.states[f1]?.[f2] ?? 'neutral';
+            }
+
+            setDiplomaticState(factionA, factionB, state, game) {
+                if (factionA === factionB) return;
+                const [f1, f2] = this._getSortedPair(factionA, factionB);
+                if (this.states[f1] === undefined) this.states[f1] = {};
+
+                const oldState = this.states[f1][f2];
+                if (oldState === state) return;
+
+                this.states[f1][f2] = state;
+                
+                if (state === 'war') {
+                    this.warExhaustion[f1][f2] = 0; // Reset exhaustion on new war
+                }
+                
+                if (game && game.uiManager) {
+                    const factionName1 = game.factions[f1]?.name || f1;
+                    const factionName2 = game.factions[f2]?.name || f2;
+                    if (state === 'war') {
+                        game.uiManager.addMessage(`${factionName1} has declared war on ${factionName2}!`, 'text-red-500 font-bold');
+                    } else if (state === 'neutral') {
+                         game.uiManager.addMessage(`${factionName1} and ${factionName2} have made peace.`, 'text-green-400');
+                    }
+                }
+            }
+
+            areFactionsAtWar(factionA, factionB) {
+                return this.getDiplomaticState(factionA, factionB) === 'war';
+            }
+            
+            isFactionAtWarWithAnyone(factionId) {
+                return this.factionIds.some(otherFaction => this.areFactionsAtWar(factionId, otherFaction));
+            }
+
+            dailyUpdate(game) {
+                // Relationship decay towards 0
+                for (const f1 of this.factionIds) {
+                    for (const f2 of this.factionIds) {
+                        if (f1 < f2) {
+                            const currentRelation = this.getRelation(f1, f2);
+                            if (currentRelation !== 0) {
+                                const decay = Math.sign(currentRelation) * -0.1;
+                                this.modifyRelation(f1, f2, decay, game);
+                            }
+                            if (this.areFactionsAtWar(f1, f2)) {
+                                this.addWarExhaustion(f1, f2, 1); // Each day at war adds exhaustion
+                            }
+                        }
+                    }
+                }
+                // Strategic AI update every 5 days
+                if (game.currentDay % 5 === 0) {
+                    this.factionIds.forEach(fid => this.factionStrategicUpdate(fid, game));
+                }
+            }
+
+            calculateFactionStrength(factionId, game) {
+                let totalPower = 0;
+                game.parties.filter(p => p.factionId === factionId && p.partyType === 'lord').forEach(p => totalPower += p.getPartyPower());
+                game.locations.filter(l => l.factionId === factionId && l.type === 'town').forEach(t => totalPower += Party.getPartyPower(t.garrison));
+                totalPower += (game.factions[factionId].treasury || 0) / 1000;
+                return totalPower;
+            }
+
+            factionStrategicUpdate(factionId, game) {
+                const myFaction = game.factions[factionId];
+                if (!myFaction) return;
+                const myStrength = this.calculateFactionStrength(factionId, game);
+
+                for(const otherFactionId of this.factionIds) {
+                    if (factionId === otherFactionId) continue;
+                    
+                    const otherStrength = this.calculateFactionStrength(otherFactionId, game);
+                    const relation = this.getRelation(factionId, otherFactionId);
+
+                    if (this.areFactionsAtWar(factionId, otherFactionId)) {
+                        const exhaustion = this.getWarExhaustion(factionId, otherFactionId);
+                        if (exhaustion > 50 && myStrength < otherStrength * 1.2) {
+                            this.setDiplomaticState(factionId, otherFactionId, 'neutral', game);
+                            // Simple reparations
+                            const reparations = Math.min(myFaction.treasury, 1000);
+                            myFaction.treasury -= reparations;
+                            game.factions[otherFactionId].treasury += reparations;
+                            game.uiManager.addMessage(`${myFaction.name} paid ${reparations}G to ${game.factions[otherFactionId].name} for peace.`, 'text-yellow-400');
+                        }
+                    } else { // Not at war
+                        if (relation < -70 && myStrength > otherStrength * (1.5 - (myFaction.aggressiveness || 0.5))) {
+                            this.setDiplomaticState(factionId, otherFactionId, 'war', game);
+                        }
+                    }
+                }
+                 // Assign directives to lords
+                this.assignLordDirectives(factionId, game);
+            }
+            
+            assignLordDirectives(factionId, game) {
+                 const lords = game.parties.filter(p => p.factionId === factionId && p.partyType === 'lord');
+                 const myTowns = game.locations.filter(l => l.factionId === factionId && l.type === 'town');
+                 const enemyTowns = game.locations.filter(l => l.type === 'town' && this.areFactionsAtWar(factionId, l.factionId));
+                 const enemyVillages = game.locations.filter(l => l.type === 'village' && this.areFactionsAtWar(factionId, l.factionId));
+                 const enemyCaravans = game.parties.filter(p => p.partyType === 'caravan' && this.areFactionsAtWar(factionId, p.factionId));
+
+                 lords.forEach(lord => {
+                     // Reset directive if target is gone
+                     if (lord.aiDirective.targetId && !game.locations.find(l => l.id === lord.aiDirective.targetId)) {
+                         lord.aiDirective = { type: 'patrol' };
+                     }
+
+                     const myStrength = lord.getPartyPower();
+
+                     const factionStrength = this.calculateFactionStrength(factionId, game);
+                     const totalEnemyStrength = this.factionIds
+                         .filter(fid => this.areFactionsAtWar(factionId, fid))
+                         .reduce((sum, fid) => sum + this.calculateFactionStrength(fid, game), 0);
+
+                     // High priority: defend if outnumbered and towns are vulnerable
+                     if (factionStrength < totalEnemyStrength * 0.8 && myTowns.length > 0) {
+                         if (Math.random() < 0.5) { // 50% chance to go on defensive
+                             const target = myTowns[Math.floor(Math.random() * myTowns.length)];
+                             lord.aiDirective = { type: 'defend', targetId: target.id };
+                             return;
+                         }
+                     }
+
+                     // Offensive directives
+                     if (enemyTowns.length > 0 && Math.random() < 0.3) { // 30% chance to siege
+                         const target = enemyTowns[Math.floor(Math.random() * enemyTowns.length)];
+                         const garrisonPower = Party.getPartyPower(target.garrison);
+                         if (myStrength > garrisonPower * 1.5) { // Only siege if you have a good chance
+                              lord.aiDirective = { type: 'siege', targetId: target.id };
+                              return;
+                         }
+                     }
+                     
+                     if (enemyCaravans.length > 0 && Math.random() < 0.4) { // 40% chance to hunt caravans
+                         lord.aiDirective = { type: 'hunt', targetType: 'caravan' };
+                         return;
+                     }
+
+                     if (enemyVillages.length > 0 && Math.random() < 0.2) { // 20% chance to raid
+                         const target = enemyVillages[Math.floor(Math.random() * enemyVillages.length)];
+                         lord.aiDirective = { type: 'raid', targetId: target.id };
+                         return;
+                     }
+
+                     // Default to patrol
+                     lord.aiDirective = { type: 'patrol' };
+                 });
+            }
+        }
+
+
+        class Combat {
+            static resolve(partyA, partyB, game) {
+                const isPlayerInvolved = partyA === game.player || partyB === game.player;
+                const playerParty = isPlayerInvolved ? (partyA === game.player ? partyA : partyB) : null;
+                const enemyParty = isPlayerInvolved ? (partyA === game.player ? partyB : partyA) : partyB;
+
+                if (isPlayerInvolved) {
+                    game.gameState = 'combat';
+                    game.player.targetX = game.player.x;
+                    game.player.targetY = game.player.y;
+                    game.player.path = [];
+                }
+
+                const initialPartyA = JSON.parse(JSON.stringify(partyA.party));
+                const initialPartyB = JSON.parse(JSON.stringify(partyB.party));
+                const initialSizeA = Party.getPartySize(initialPartyA), initialSizeB = Party.getPartySize(initialPartyB);
+                const initialAtkA = Party.getPartyAttack(initialPartyA), initialDefA = Party.getPartyDefense(initialPartyA);
+                const initialAtkB = Party.getPartyAttack(initialPartyB), initialDefB = Party.getPartyDefense(initialPartyB);
+
+                let currentPartyA = JSON.parse(JSON.stringify(partyA.party));
+                let currentPartyB = JSON.parse(JSON.stringify(partyB.party));
+                const battleLog = [];
+                let round = 0;
+
+                while (Party.getPartySize(currentPartyA) > 0 && Party.getPartySize(currentPartyB) > 0 && round < 20) {
+                    round++;
+                    const roundLog = { round };
+                    const sizeA = Party.getPartySize(currentPartyA), atkA = Party.getPartyAttack(currentPartyA), defA = Party.getPartyDefense(currentPartyA);
+                    const sizeB = Party.getPartySize(currentPartyB), atkB = Party.getPartyAttack(currentPartyB), defB = Party.getPartyDefense(currentPartyB);
+                    const damageToB = Math.max(1, Math.round(atkA * (0.8 + Math.random() * 0.4) - defB * (0.8 + Math.random() * 0.2)));
+                    const lossesB = Math.min(sizeB, Math.floor(damageToB / TROOP_HP));
+                    currentPartyB = Party.removeTroops(currentPartyB, lossesB);
+                    roundLog.damageToB = damageToB;
+                    roundLog.lossesB = lossesB;
+                    const damageToA = Math.max(1, Math.round(atkB * (0.8 + Math.random() * 0.4) - defA * (0.8 + Math.random() * 0.2)));
+                    const lossesA = Math.min(sizeA, Math.floor(damageToA / TROOP_HP));
+                    currentPartyA = Party.removeTroops(currentPartyA, lossesA);
+                    roundLog.damageToA = damageToA;
+                    roundLog.lossesA = lossesA;
+                    roundLog.partyASize = Party.getPartySize(currentPartyA);
+                    roundLog.partyBSize = Party.getPartySize(currentPartyB);
+                    battleLog.push(roundLog);
+                }
+
+                const finalSizeA = Party.getPartySize(currentPartyA);
+                const finalSizeB = Party.getPartySize(currentPartyB);
+                const totalLossesA = initialSizeA - finalSizeA;
+                const totalLossesB = initialSizeB - finalSizeB;
+                
+                // Add war exhaustion
+                if (game.diplomacyManager.areFactionsAtWar(partyA.factionId, partyB.factionId)) {
+                    const totalCasualties = totalLossesA + totalLossesB;
+                    game.diplomacyManager.addWarExhaustion(partyA.factionId, partyB.factionId, totalCasualties * 0.1);
+                }
+
+                let winner, loser, resultText;
+                if (finalSizeA > finalSizeB) { winner = partyA; loser = partyB; resultText = `${partyA.name} Wins!`; }
+                else if (finalSizeB > finalSizeA) { winner = partyB; loser = partyA; resultText = `${partyB.name} Wins!`; }
+                else { winner = null; loser = null; resultText = 'Mutual Annihilation!'; }
+                
+                partyA.party = Party.removeTroops(JSON.parse(JSON.stringify(initialPartyA)), totalLossesA);
+                partyB.party = Party.removeTroops(JSON.parse(JSON.stringify(initialPartyB)), totalLossesB);
+
+                if (isPlayerInvolved) {
+                    game.pauseGame();
+                    const playerIsWinner = winner === playerParty;
+                    const result = playerIsWinner ? 'Victory!' : (winner === null ? 'Draw!' : 'Defeat!');
+                    const playerPartyIsA = partyA === playerParty;
+
+                    const combatReportData = {
+                        title: `Battle against ${enemyParty.name}`,
+                        result: result,
+                        playerPartyDesc: `${playerPartyIsA ? initialSizeA : initialSizeB} troops (Atk: ${playerPartyIsA ? initialAtkA : initialAtkB}, Def: ${playerPartyIsA ? initialDefA : initialDefB})`,
+                        enemyPartyDesc: `${!playerPartyIsA ? initialSizeA : initialSizeB} troops (Atk: ${!playerPartyIsA ? initialAtkA : initialAtkB}, Def: ${!playerPartyIsA ? initialDefA : initialDefB})`,
+                        log: battleLog.map(r => {
+                            const pDamage = playerPartyIsA ? r.damageToB : r.damageToA, pLosses = playerPartyIsA ? r.lossesA : r.lossesB;
+                            const eDamage = playerPartyIsA ? r.damageToA : r.damageToB, eLosses = playerPartyIsA ? r.lossesB : r.lossesA;
+                            const pSize = playerPartyIsA ? r.partyASize : r.partyBSize, eSize = playerPartyIsA ? r.partyBSize : r.partyASize;
+                            return `<p class="border-b border-zinc-700 pb-1 mb-1 text-xs"><span class="font-bold">R${r.round}:</span> You dealt <span class="text-green-400">${pDamage}</span> causing <span class="text-red-400">${eLosses}</span>. Enemy dealt <span class="text-red-400">${eDamage}</span> causing <span class="text-red-400">${pLosses}</span>. <span class="text-zinc-400">Rem: You ${pSize}, Enemy ${eSize}</span></p>`
+                        }).join(''),
+                        playerLosses: playerPartyIsA ? totalLossesA : totalLossesB,
+                        enemyLosses: playerPartyIsA ? totalLossesB : totalLossesA,
+                    };
+                    game.uiManager.showCombatReport(combatReportData);
+                    game.uiManager.addMessage(`You fought ${enemyParty.name} and ${result === 'Victory!' ? 'won' : 'lost'}.`, result === 'Victory!' ? 'text-green-400' : 'text-red-400');
+
+                    if (playerIsWinner) {
+                        const goldGained = (enemyParty.gold || 0) + 10 + Math.floor(Math.random() * 50);
+                        game.player.gold += goldGained;
+                        game.uiManager.addMessage(`You looted ${goldGained} G.`, 'text-yellow-400');
+                    } else {
+                        const goldLost = Math.min(game.player.gold, 50 + Math.floor(Math.random() * 50));
+                        game.player.gold -= goldLost;
+                        game.uiManager.addMessage(`You lost ${goldLost} G.`, 'text-red-400');
+                        if (game.player.getPartySize() === 0) {
+                            game.uiManager.addMessage('Your party is defeated. You find 5 Spearmen from a nearby village.', 'text-red-500');
+                            game.player.party = [{ type: 'spearman', count: 5 }];
+                            let spawnLoc = game.locations.find(l => l.type === 'town');
+                            if (!spawnLoc) spawnLoc = { x: game.worldMap.mapWidth / 2, y: game.worldMap.mapHeight / 2};
+                            game.player.x = spawnLoc.x; game.player.y = spawnLoc.y;
+                            game.player.targetX = game.player.x; game.player.targetY = game.player.y;
+                            game.cameraX = game.player.x; game.cameraY = game.player.y;
+                        }
+                    }
+                    game.uiManager.updatePlayerStats(game.player, game.currentDay);
+                } else {
+                    game.uiManager.addMessage(`${partyA.name} and ${partyB.name} have clashed! ${resultText}`, 'text-orange-400');
+                }
+
+                if (winner) {
+                    game.parties = game.parties.filter(p => p !== loser);
+                    if (winner.factionId === 'beast' && winner.homeDenId !== undefined) {
+                        const den = game.locations.find(l => l.id === winner.homeDenId);
+                        if (den) { den.power += 5; game.uiManager.addMessage(`A beast den grows in power!`, 'text-red-600'); }
+                    }
+                } else {
+                    game.parties = game.parties.filter(p => p !== partyA && p !== partyB);
+                }
+
+                if (loser) {
+                    if (loser.factionId === 'beast' && loser.homeDenId !== undefined) {
+                        const den = game.locations.find(l => l.id === loser.homeDenId);
+                        if (den) { den.power = Math.max(1, den.power - 3); }
+                    }
+                }
+            }
+            
+             static resolveSiege(attacker, town, game) {
+                const garrison = town.garrison;
+                let currentAttackerParty = JSON.parse(JSON.stringify(attacker.party));
+                let currentGarrison = JSON.parse(JSON.stringify(garrison));
+                let round = 0;
+                while (Party.getPartySize(currentAttackerParty) > 0 && Party.getPartySize(currentGarrison) > 0 && round < 30) {
+                    round++;
+                    const atkA = Party.getPartyAttack(currentAttackerParty), defA = Party.getPartyDefense(currentAttackerParty);
+                    const sizeG = Party.getPartySize(currentGarrison), atkG = Party.getPartyAttack(currentGarrison), defG = Party.getPartyDefense(currentGarrison);
+                    
+                    // Garrison gets a defensive bonus
+                    const damageToGarrison = Math.max(1, Math.round(atkA * (0.8 + Math.random() * 0.4) - (defG * 1.2) * (0.8 + Math.random() * 0.2)));
+                    const lossesGarrison = Math.min(sizeG, Math.floor(damageToGarrison / TROOP_HP));
+                    currentGarrison = Party.removeTroops(currentGarrison, lossesGarrison);
+
+                    const damageToAttacker = Math.max(1, Math.round(atkG * (0.8 + Math.random() * 0.4) - defA * (0.8 + Math.random() * 0.2)));
+                    const lossesAttacker = Math.min(Party.getPartySize(currentAttackerParty), Math.floor(damageToAttacker / TROOP_HP));
+                    currentAttackerParty = Party.removeTroops(currentAttackerParty, lossesAttacker);
+                }
+                
+                const finalAttackerSize = Party.getPartySize(currentAttackerParty);
+                const finalGarrisonSize = Party.getPartySize(currentGarrison);
+
+                if (finalGarrisonSize <= 0) { // Attacker wins
+                    game.uiManager.addMessage(`${attacker.name} has conquered ${town.name}!`, 'text-red-600 font-bold');
+                    town.changeOwner(attacker.factionId, game);
+                    attacker.party = currentAttackerParty;
+                } else { // Defender wins
+                    game.uiManager.addMessage(`${town.name} has repelled the siege from ${attacker.name}!`, 'text-green-500 font-bold');
+                    town.garrison = currentGarrison;
+                    if (finalAttackerSize <= 0) {
+                        game.parties = game.parties.filter(p => p !== attacker);
+                    } else {
+                         attacker.party = currentAttackerParty;
+                    }
+                }
+                town.isUnderSiege = false;
+                town.siegeProgress = 0;
+                town.siegeAttackerId = null;
+            }
+        }
+        
+        // --- SECTION 3: "SYSTEM" CLASSES ---
+
+        class UIManager {
+            constructor(game) {
+                this.game = game;
+                this.elements = {
+                    dayStat: document.getElementById('day-stat'),
+                    goldStat: document.getElementById('gold-stat'),
+                    armyStat: document.getElementById('army-stat'),
+                    attackStat: document.getElementById('attack-stat'),
+                    defenseStat: document.getElementById('defense-stat'),
+                    speedStat: document.getElementById('speed-stat'),
+                    inventoryStat: document.getElementById('inventory-stat'),
+                    messageLog: document.getElementById('messageLog'),
+                    timeDisplayDay: document.getElementById('time-day'),
+                    timeDisplayClock: document.getElementById('time-clock'),
+                    timeControlButton: document.getElementById('time-control-button'),
+                    townModal: document.getElementById('town-modal'),
+                    townNameEl: document.getElementById('town-name'),
+                    townFactionEl: document.getElementById('town-faction'),
+                    townLevelEl: document.getElementById('town-level'),
+                    townTreasuryEl: document.getElementById('town-treasury'),
+                    townGarrisonSizeEl: document.getElementById('town-garrison-size'),
+                    townRelationsListEl: document.getElementById('town-relations-list'),
+                    townGossipListEl: document.getElementById('town-gossip-list'),
+                    townBuyListEl: document.getElementById('town-buy-list'),
+                    townSellListEl: document.getElementById('town-sell-list'),
+                    townRecruitmentOptionsEl: document.getElementById('town-recruitment-options'),
+                    leaveTownButton: document.getElementById('leave-town-button'),
+                    townTabs: document.getElementById('town-tabs'),
+                    villageModal: document.getElementById('village-modal'),
+                    villageNameEl: document.getElementById('village-name'),
+                    villageLevelEl: document.getElementById('village-level'),
+                    villageFactionEl: document.getElementById('village-faction'),
+                    villageProductionTextEl: document.getElementById('village-production-text'),
+                    villageBuyOptionsEl: document.getElementById('village-buy-options'),
+                    leaveVillageButton: document.getElementById('leave-village-button'),
+                    combatModal: document.getElementById('combat-modal'),
+                    combatTitle: document.getElementById('combat-title'),
+                    combatResult: document.getElementById('combat-result'),
+                    combatPlayerParty: document.getElementById('combat-player-party'),
+                    combatEnemyParty: document.getElementById('combat-enemy-party'),
+                    combatLog: document.getElementById('combat-log'),
+                    combatPlayerLosses: document.getElementById('combat-player-losses'),
+                    combatEnemyLosses: document.getElementById('combat-enemy-losses'),
+                    combatCloseButton: document.getElementById('combat-close-button'),
+                    statsModal: document.getElementById('stats-modal'),
+                    statsButton: document.getElementById('stats-button'),
+                    statsCloseButton: document.getElementById('stats-close-button'),
+                    logModal: document.getElementById('log-modal'),
+                    logButton: document.getElementById('log-button'),
+                    logCloseButton: document.getElementById('log-close-button'),
+                    kingdomsModal: document.getElementById('kingdoms-modal'),
+                    kingdomsButton: document.getElementById('kingdoms-button'),
+                    kingdomsCloseButton: document.getElementById('kingdoms-close-button'),
+                    kingdomsContentEl: document.getElementById('kingdoms-content'),
+                    titleScreen: document.getElementById('title-screen'),
+                    uiOverlay: document.getElementById('ui-overlay'),
+                    newGameButton: document.getElementById('new-game-button'),
+                    loadGameButton: document.getElementById('load-game-button'),
+                    saveGameModalButton: document.getElementById('save-game-button'),
+                    loadGameModalButton: document.getElementById('load-game-button-modal'),
+                };
+                this.bindEvents();
+            }
+
+            bindEvents() {
+                this.elements.newGameButton.addEventListener('click', () => this.game.startNewGame());
+                this.elements.loadGameButton.addEventListener('click', () => this.game.loadGame());
+                this.elements.saveGameModalButton.addEventListener('click', () => this.game.saveGame());
+                this.elements.loadGameModalButton.addEventListener('click', () => this.game.loadGame());
+
+                this.elements.timeControlButton.addEventListener('click', () => {
+                    if (this.game.gameState === 'map') {
+                        this.game.gameSpeedMultiplier = (this.game.gameSpeedMultiplier + 1) % 3;
+                        this.updateTimeControlButton();
+                    }
+                });
+                
+                this.elements.statsButton.addEventListener('click', () => this.openStats());
+                this.elements.statsCloseButton.addEventListener('click', () => this.closeStats());
+                this.elements.statsModal.addEventListener('click', (e) => { if (e.target === this.elements.statsModal) this.closeStats(); });
+                
+                this.elements.logButton.addEventListener('click', () => this.openLog());
+                this.elements.logCloseButton.addEventListener('click', () => this.closeLog());
+                this.elements.logModal.addEventListener('click', (e) => { if (e.target === this.elements.logModal) this.closeLog(); });
+                
+                this.elements.kingdomsButton.addEventListener('click', () => this.openKingdoms());
+                this.elements.kingdomsCloseButton.addEventListener('click', () => this.closeKingdoms());
+                this.elements.kingdomsModal.addEventListener('click', (e) => { if (e.target === this.elements.kingdomsModal) this.closeKingdoms(); });
+
+                this.elements.leaveTownButton.addEventListener('click', () => this.leaveTown());
+                this.elements.leaveVillageButton.addEventListener('click', () => this.leaveVillage());
+                this.elements.combatCloseButton.addEventListener('click', () => this.closeCombatReport());
+
+                this.elements.townTabs.addEventListener('click', (e) => {
+                    const target = e.target;
+                    if (target instanceof HTMLElement && target.classList.contains('town-tab-button')) {
+                        const tabName = target.dataset.tab;
+                        document.querySelectorAll('.town-tab-content').forEach(el => el.classList.add('hidden'));
+                        document.getElementById(`town-${tabName}-tab`).classList.remove('hidden');
+                        document.querySelectorAll('.town-tab-button').forEach(btn => {
+                            btn.classList.remove('bg-zinc-700', 'text-white');
+                            btn.classList.add('text-zinc-400');
+                        });
+                        target.classList.add('bg-zinc-700', 'text-white');
+                        target.classList.remove('text-zinc-400');
+                    }
+                });
+            }
+            
+            checkSaveGameExists() {
+                 if (!localStorage.getItem('bannerlord2d_save')) {
+                    this.elements.loadGameButton.disabled = true;
+                    this.elements.loadGameModalButton.disabled = true;
+                } else {
+                    this.elements.loadGameButton.disabled = false;
+                    this.elements.loadGameModalButton.disabled = false;
+                }
+            }
+
+            addMessage(message, color = 'text-zinc-300') {
+                const msgEl = document.createElement('div');
+                msgEl.className = color;
+                msgEl.textContent = message;
+                if (this.elements.messageLog.children.length > 200) {
+                    this.elements.messageLog.removeChild(this.elements.messageLog.firstChild);
+                }
+                this.elements.messageLog.appendChild(msgEl);
+                this.elements.messageLog.scrollTop = this.elements.messageLog.scrollHeight;
+            }
+
+            updateTimeUI(day, gameTime) {
+                const currentHour = Math.floor(gameTime % 24);
+                const currentMinute = Math.floor((gameTime * 60) % 60);
+                this.elements.timeDisplayDay.textContent = `Day ${day}`;
+                this.elements.timeDisplayClock.textContent = `${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}`;
+            }
+
+            updateTimeControlButton() {
+                const btn = this.elements.timeControlButton;
+                if (this.game.gameSpeedMultiplier === 0) {
+                    btn.textContent = '▶';
+                    btn.classList.remove('bg-green-600', 'hover:bg-green-700');
+                    btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                } else if (this.game.gameSpeedMultiplier === 1) {
+                    btn.textContent = '❚❚';
+                    btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                    btn.classList.add('bg-green-600', 'hover:bg-green-700');
+                } else {
+                    btn.textContent = '▶▶';
+                    btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                    btn.classList.add('bg-green-600', 'hover:bg-green-700');
+                }
+            }
+            
+            updatePlayerStats(player, day) {
+                if (!player) return;
+                player.updateSpeed();
+                this.elements.dayStat.textContent = day;
+                this.elements.goldStat.textContent = `${player.gold} G`;
+                this.elements.armyStat.textContent = player.getPartySize();
+                this.elements.attackStat.textContent = player.getPartyAttack();
+                this.elements.defenseStat.textContent = player.getPartyDefense();
+                this.elements.speedStat.textContent = player.speed.toFixed(0);
+
+                const inventoryEl = this.elements.inventoryStat;
+                inventoryEl.innerHTML = '';
+                const goods = player.inventory ? Object.keys(player.inventory) : [];
+                if (goods.length === 0 || goods.every(key => player.inventory[key] <= 0)) {
+                    inventoryEl.innerHTML = '<p class="text-zinc-500">No goods.</p>';
+                } else {
+                    goods.sort((a,b) => GOODS[a].name.localeCompare(GOODS[b].name)).forEach(key => {
+                        const amount = player.inventory[key];
+                        if (amount > 0) {
+                            const good = GOODS[key];
+                            const el = document.createElement('div');
+                            el.className = 'flex justify-between';
+                            el.innerHTML = `<span>${good.name}:</span><span class="font-semibold">${amount}</span>`;
+                            inventoryEl.appendChild(el);
+                        }
+                    });
+                }
+            }
+            
+            openStats() {
+                if (this.game.gameState === 'map') {
+                    this.game.pauseGame();
+                    this.game.gameState = 'paused';
+                    this.updatePlayerStats(this.game.player, this.game.currentDay);
+                    this.elements.statsModal.classList.remove('hidden');
+                }
+            }
+            closeStats() {
+                this.elements.statsModal.classList.add('hidden');
+                if (this.game.gameState === 'paused') {
+                    this.game.gameState = 'map';
+                }
+            }
+
+            openLog() {
+                if (this.game.gameState === 'map') {
+                    this.game.pauseGame();
+                    this.game.gameState = 'paused';
+                    this.elements.logModal.classList.remove('hidden');
+                }
+            }
+            closeLog() {
+                this.elements.logModal.classList.add('hidden');
+                if (this.game.gameState === 'paused') {
+                    this.game.gameState = 'map';
+                }
+            }
+            
+            openKingdoms() {
+                if (this.game.gameState === 'map') {
+                    this.game.pauseGame();
+                    this.game.gameState = 'paused';
+                    this.updateKingdomsUI();
+                    this.elements.kingdomsModal.classList.remove('hidden');
+                }
+            }
+            closeKingdoms() {
+                this.elements.kingdomsModal.classList.add('hidden');
+                if (this.game.gameState === 'paused') {
+                    this.game.gameState = 'map';
+                }
+            }
+            
+            updateKingdomsUI() {
+                const contentEl = this.elements.kingdomsContentEl;
+                contentEl.innerHTML = '';
+                const factionIds = this.game.diplomacyManager.factionIds.filter(id => id !== 'player');
+
+                // Diplomacy Matrix
+                let tableHtml = `<h3 class="font-medieval text-xl text-blue-400 mb-2">Diplomatic Relations</h3><table class="w-full text-sm text-left text-zinc-300 mb-6">`;
+                tableHtml += `<thead class="text-xs text-zinc-400 uppercase bg-zinc-700"><tr><th scope="col" class="px-3 py-2"></th>`;
+                factionIds.forEach(fid => {
+                    const faction = this.game.factions[fid];
+                    tableHtml += `<th scope="col" class="px-3 py-2 text-center" style="color:${faction.color};">${faction.name}</th>`;
+                });
+                tableHtml += `</tr></thead><tbody>`;
+
+                factionIds.forEach(fid1 => {
+                    const faction1 = this.game.factions[fid1];
+                    tableHtml += `<tr class="border-b border-zinc-700"><td class="px-3 py-2 font-semibold" style="color:${faction1.color};">${faction1.name}</td>`;
+                    factionIds.forEach(fid2 => {
+                        if (fid1 === fid2) {
+                            tableHtml += `<td class="px-3 py-2 bg-zinc-800"></td>`;
+                        } else {
+                            const state = this.game.diplomacyManager.getDiplomaticState(fid1, fid2);
+                            const relation = this.game.diplomacyManager.getRelation(fid1, fid2);
+                            let stateColor = 'text-green-400';
+                            if (state === 'war') stateColor = 'text-red-500 font-bold';
+                            tableHtml += `<td class="px-3 py-2 text-center ${stateColor}">${state.charAt(0).toUpperCase() + state.slice(1)} (${relation.toFixed(0)})</td>`;
+                        }
+                    });
+                    tableHtml += `</tr>`;
+                });
+                tableHtml += `</tbody></table>`;
+                contentEl.innerHTML += tableHtml;
+
+                // Faction Info
+                factionIds.forEach(fid => {
+                    const faction = this.game.factions[fid];
+                    const strength = this.game.diplomacyManager.calculateFactionStrength(fid, this.game);
+                    const towns = this.game.locations.filter(l => l.factionId === fid && l.type === 'town');
+                    const villages = this.game.locations.filter(l => l.factionId === fid && l.type === 'village');
+
+                    let factionHtml = `<div class="bg-zinc-900 p-4 rounded-lg mb-4"><h4 class="font-medieval text-lg mb-2" style="color:${faction.color};">${faction.name}</h4>`;
+                    factionHtml += `<div class="grid grid-cols-2 gap-2 text-sm">`;
+                    factionHtml += `<div><strong>Strength:</strong> ${strength.toFixed(0)}</div>`;
+                    factionHtml += `<div><strong>Treasury:</strong> ${faction.treasury} G</div>`;
+                    factionHtml += `<div class="col-span-2"><strong>Towns:</strong> ${towns.length > 0 ? towns.map(t=>t.name).join(', ') : 'None'}</div>`;
+                    factionHtml += `<div class="col-span-2"><strong>Villages:</strong> ${villages.length > 0 ? villages.map(v=>v.name).join(', ') : 'None'}</div>`;
+                    factionHtml += `</div></div>`;
+                    contentEl.innerHTML += factionHtml;
+                });
+            }
+            
+            leaveTown() {
+                this.elements.townModal.classList.add('hidden');
+                this.game.gameState = 'map';
+                this.game.currentLocation = null;
+                this.game.justLeftLocation = true;
+                setTimeout(() => { this.game.justLeftLocation = false; }, 2000);
+            }
+
+            leaveVillage() {
+                this.elements.villageModal.classList.add('hidden');
+                this.game.gameState = 'map';
+                this.game.currentLocation = null;
+                this.game.justLeftLocation = true;
+                setTimeout(() => { this.game.justLeftLocation = false; }, 2000);
+            }
+            
+            showCombatReport(data) {
+                this.elements.combatTitle.textContent = data.title;
+                this.elements.combatResult.textContent = data.result;
+                this.elements.combatResult.className = `text-2xl font-bold text-center mb-4 ${data.result === 'Victory!' ? 'text-green-400' : 'text-red-400'}`;
+                this.elements.combatPlayerParty.textContent = data.playerPartyDesc;
+                this.elements.combatEnemyParty.textContent = data.enemyPartyDesc;
+                this.elements.combatLog.innerHTML = data.log;
+                this.elements.combatPlayerLosses.textContent = data.playerLosses;
+                this.elements.combatEnemyLosses.textContent = data.enemyLosses;
+                this.elements.combatModal.classList.remove('hidden');
+            }
+
+            closeCombatReport() {
+                this.elements.combatModal.classList.add('hidden');
+                this.game.gameState = 'map';
+            }
+
+            openTownModal(town) {
+                this.game.pauseGame();
+                this.game.gameState = 'town';
+                this.game.currentLocation = town;
+                this.elements.townNameEl.textContent = town.name;
+
+                const faction = FACTIONS[town.factionId];
+                if (faction) {
+                    this.elements.townFactionEl.textContent = faction.name;
+                    this.elements.townFactionEl.style.color = faction.color;
+                } else {
+                    this.elements.townFactionEl.textContent = '';
+                }
+
+                this.elements.townLevelEl.textContent = town.level;
+                this.elements.townTreasuryEl.textContent = `${town.treasury} G`;
+                this.elements.townGarrisonSizeEl.textContent = Party.getPartySize(town.garrison);
+                
+                this.updateTownMarketUI(town);
+                this.updateRecruitmentUI(town);
+                this.updateTownPoliticsUI(town);
+                
+                document.querySelectorAll('.town-tab-content').forEach(el => el.classList.add('hidden'));
+                document.getElementById('town-market-tab').classList.remove('hidden');
+                document.querySelectorAll('.town-tab-button').forEach(btn => {
+                    btn.classList.remove('bg-zinc-700', 'text-white');
+                    btn.classList.add('text-zinc-400');
+                });
+                document.querySelector('.town-tab-button[data-tab="market"]').classList.add('bg-zinc-700', 'text-white');
+                this.elements.townModal.classList.remove('hidden');
+            }
+            
+            updateTownMarketUI(town) {
+                this.elements.townBuyListEl.innerHTML = ''; 
+                this.elements.townSellListEl.innerHTML = '';
+                const townGoods = Object.keys(town.inventory).sort((a,b) => GOODS[a].name.localeCompare(GOODS[b].name));
+                if (townGoods.length === 0 || townGoods.every(key => town.inventory[key] <= 0)) {
+                    this.elements.townBuyListEl.innerHTML = '<p class="text-zinc-500">Nothing for sale.</p>';
+                }
+                for (const goodKey of townGoods) {
+                    const stock = town.inventory[goodKey] || 0;
+                    if (stock <= 0) continue;
+                    const price = town.calculatePrice(goodKey, this.game);
+                    const itemEl = this._createMarketItem(GOODS[goodKey].name, stock, price, "Buy", "blue");
+                    itemEl.querySelector('button').addEventListener('click', () => {
+                        const quantity = parseInt(itemEl.querySelector('input').value, 10);
+                        if (quantity > 0 && quantity <= stock) {
+                            const cost = quantity * price;
+                            if (this.game.player.gold >= cost) {
+                                this.game.player.gold -= cost; town.treasury += cost;
+                                this.game.player.inventory[goodKey] = (this.game.player.inventory[goodKey] || 0) + quantity;
+                                town.inventory[goodKey] -= quantity;
+                                this.updatePlayerStats(this.game.player, this.game.currentDay); 
+                                this.updateTownMarketUI(town);
+                            }
+                        }
+                    });
+                    this.elements.townBuyListEl.appendChild(itemEl);
+                }
+
+                const playerGoods = Object.keys(this.game.player.inventory).sort((a,b) => GOODS[a].name.localeCompare(GOODS[b].name));
+                if (playerGoods.length === 0 || playerGoods.every(key => this.game.player.inventory[key] <= 0)) {
+                    this.elements.townSellListEl.innerHTML = '<p class="text-zinc-500">You have no goods.</p>';
+                }
+                for (const goodKey of playerGoods) {
+                    const stock = this.game.player.inventory[goodKey] || 0;
+                    if (stock <= 0) continue;
+                    const price = town.calculatePrice(goodKey, this.game);
+                    const itemEl = this._createMarketItem(GOODS[goodKey].name, stock, price, "Sell", "green");
+                    itemEl.querySelector('button').addEventListener('click', () => {
+                        const quantity = parseInt(itemEl.querySelector('input').value, 10);
+                        if (quantity > 0 && quantity <= stock) {
+                            const revenue = quantity * price;
+                            if (town.treasury >= revenue) {
+                                this.game.player.gold += revenue; town.treasury -= revenue;
+                                this.game.player.inventory[goodKey] -= quantity;
+                                town.inventory[goodKey] = (town.inventory[goodKey] || 0) + quantity;
+                                this.updatePlayerStats(this.game.player, this.game.currentDay); 
+                                this.updateTownMarketUI(town);
+                            }
+                        }
+                    });
+                    this.elements.townSellListEl.appendChild(itemEl);
+                }
+            }
+
+            updateRecruitmentUI(town) {
+                this.elements.townRecruitmentOptionsEl.innerHTML = '';
+                for(const troopType in town.barracks) {
+                    const count = town.barracks[troopType];
+                    if(count > 0) {
+                        const troopData = TROOP_TYPES[troopType];
+                        const itemEl = document.createElement('div');
+                        itemEl.className = 'flex items-center justify-between bg-zinc-900 p-2 rounded';
+                        itemEl.innerHTML = `
+                            <span>${troopData.name} (${count})</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-yellow-500 w-20 text-right">${troopData.cost} G</span>
+                                <input type="number" class="w-12 bg-zinc-700 text-white p-1 rounded text-center" value="1" min="1" max="${count}">
+                                <button class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">Recruit</button>
+                            </div>`;
+                        itemEl.querySelector('button').addEventListener('click', () => {
+                            const quantity = parseInt(itemEl.querySelector('input').value, 10);
+                            if(quantity > 0 && quantity <= count) {
+                                const cost = quantity * troopData.cost;
+                                if(this.game.player.gold >= cost) {
+                                    this.game.player.gold -= cost;
+                                    town.treasury += cost;
+                                    town.barracks[troopType] -= quantity;
+                                    this.game.player.addTroops(troopType, quantity);
+                                    this.updatePlayerStats(this.game.player, this.game.currentDay);
+                                    this.updateRecruitmentUI(town);
+                                }
+                            }
+                        });
+                        this.elements.townRecruitmentOptionsEl.appendChild(itemEl);
+                    }
+                }
+                if (this.elements.townRecruitmentOptionsEl.innerHTML === '') {
+                    this.elements.townRecruitmentOptionsEl.innerHTML = '<p class="text-zinc-500">No troops available for recruitment.</p>';
+                }
+            }
+            
+             updateTownPoliticsUI(town) {
+                const relationsEl = this.elements.townRelationsListEl;
+                const gossipEl = this.elements.townGossipListEl;
+                relationsEl.innerHTML = '';
+                gossipEl.innerHTML = '';
+
+                let hasWar = false;
+                this.game.diplomacyManager.factionIds.forEach(otherFid => {
+                    if (town.factionId === otherFid || otherFid === 'player') return;
+                    const state = this.game.diplomacyManager.getDiplomaticState(town.factionId, otherFid);
+                    if (state === 'war') {
+                        hasWar = true;
+                        const otherFaction = this.game.factions[otherFid];
+                        relationsEl.innerHTML += `<div class="flex justify-between items-center"><span style="color:${otherFaction.color};">${otherFaction.name}</span> <span class="text-red-500 font-bold">At War</span></div>`;
+                    }
+                });
+
+                if (!hasWar) {
+                    relationsEl.innerHTML = '<p class="text-zinc-500">At peace with all major factions.</p>';
+                }
+                
+                // Gossip generation
+                if (hasWar) {
+                    gossipEl.innerHTML += `<p>"Times are tense. The call for soldiers might come any day now."</p>`;
+                } else {
+                     gossipEl.innerHTML += `<p>"It's been quiet lately. Good for business, I say."</p>`;
+                }
+                if(town.hadShortageRecently) {
+                    gossipEl.innerHTML += `<p>"The caravans haven't been coming through. I hope we get a shipment of goods soon."</p>`;
+                } else {
+                     gossipEl.innerHTML += `<p>"The markets are well-stocked. Trade is flowing."</p>`;
+                }
+            }
+
+            openVillageModal(village) {
+                this.game.pauseGame();
+                this.game.gameState = 'village';
+                this.game.currentLocation = village;
+                this.elements.villageNameEl.textContent = village.name;
+                this.elements.villageLevelEl.textContent = village.level;
+                const faction = FACTIONS[village.factionId];
+                if (faction) {
+                    this.elements.villageFactionEl.textContent = faction.name;
+                    this.elements.villageFactionEl.style.color = faction.color;
+                }
+                this.elements.villageProductionTextEl.textContent = `This village produces ${GOODS[village.production].name}.`;
+
+                this.elements.villageBuyOptionsEl.innerHTML = '';
+                const stock = village.inventory[village.production] || 0;
+                if (stock > 0) {
+                    const price = village.calculatePrice(village.production, this.game);
+                    const itemEl = this._createMarketItem(GOODS[village.production].name, stock, price, "Buy", "blue", true);
+                    itemEl.querySelector('button').addEventListener('click', () => {
+                        const quantity = parseInt(itemEl.querySelector('input').value, 10);
+                        if(quantity > 0 && quantity <= stock) {
+                            const cost = quantity * price;
+                            if(this.game.player.gold >= cost) {
+                                this.game.player.gold -= cost;
+                                village.gold += cost;
+                                village.inventory[village.production] -= quantity;
+                                this.game.player.inventory[village.production] = (this.game.player.inventory[village.production] || 0) + quantity;
+                                this.updatePlayerStats(this.game.player, this.game.currentDay);
+                                this.openVillageModal(village); // Refresh modal
+                            }
+                        }
+                    });
+                    this.elements.villageBuyOptionsEl.appendChild(itemEl);
+                } else {
+                    this.elements.villageBuyOptionsEl.innerHTML = '<p class="text-zinc-500">Out of stock.</p>';
+                }
+                this.elements.villageModal.classList.remove('hidden');
+            }
+
+            _createMarketItem(name, stock, price, action, color, isVillage = false) {
+                 const itemEl = document.createElement('div');
+                 const className = isVillage ? 'flex items-center justify-between bg-zinc-900 p-2 rounded' : 'flex items-center justify-between text-sm';
+                 itemEl.className = className;
+                 itemEl.innerHTML = `
+                    <span>${name} (${stock})</span>
+                    <div class="flex items-center gap-1">
+                        <span class="text-yellow-500 w-16 text-right">${price} G</span>
+                        <input type="number" class="w-12 bg-zinc-700 text-white p-1 rounded text-center" value="1" min="1" max="${stock}">
+                        <button class="bg-${color}-600 hover:bg-${color}-700 text-white px-2 py-1 rounded">${action}</button>
+                    </div>`;
+                return itemEl;
+            }
+        }
+
+        class WorldMap {
+            constructor() {
+                this.mapWidth = MAP_DIMENSION;
+                this.mapHeight = MAP_DIMENSION;
+                this.gridWidth = this.mapWidth / GRID_SIZE;
+                this.gridHeight = this.mapHeight / GRID_SIZE;
+                this.terrainGrid = [];
+            }
+            
+            getTerrainAt(worldX, worldY) {
+                const gridX = Math.floor(worldX / GRID_SIZE);
+                const gridY = Math.floor(worldY / GRID_SIZE);
+                if (gridX < 0 || gridX >= this.gridWidth || gridY < 0 || gridY >= this.gridHeight) return 'plains';
+                if (!this.terrainGrid || this.terrainGrid.length === 0 || !this.terrainGrid[gridX]) return 'plains';
+                return this.terrainGrid[gridX][gridY];
+            }
+
+            isImpassable(terrainType) {
+                return terrainType === 'water' || terrainType === 'mountain';
+            }
+
+            generateTerrain() {
+                const grid = Array(this.gridWidth).fill(0).map(() => Array(this.gridHeight).fill('plains'));
+                const localSetTerrain = (x, y, type) => {
+                    if (x >= 0 && x < this.gridWidth && y >= 0 && y < this.gridHeight) grid[x][y] = type;
+                };
+                const localGetTerrain = (x, y) => {
+                    if (x >= 0 && x < this.gridWidth && y >= 0 && y < this.gridHeight) return grid[x][y];
+                    return 'plains';
+                };
+                const generateSolidLake = (startX, startY, steps) => {
+                    let x = startX, y = startY;
+                    for (let i = 0; i < steps; i++) {
+                        localSetTerrain(x, y, 'water'); localSetTerrain(x + 1, y, 'water');
+                        localSetTerrain(x, y + 1, 'water'); localSetTerrain(x + 1, y + 1, 'water');
+                        const dir = Math.floor(Math.random() * 4);
+                        if (dir === 0) x++; else if (dir === 1) x--; else if (dir === 2) y++; else y--;
+                        x = Math.max(0, Math.min(this.gridWidth - 2, x));
+                        y = Math.max(0, Math.min(this.gridHeight - 2, y));
+                    }
+                };
+                for (let i = 0; i < 50; i++) generateSolidLake(Math.floor(Math.random() * this.gridWidth), Math.floor(Math.random() * this.gridHeight), 5000);
+                const generateMountainRanges = (type, count, baseSize) => {
+                    for (let i = 0; i < count; i++) {
+                        const numSquares = 3 + Math.floor(Math.random() * 3), squares = [];
+                        for (let j = 0; j < numSquares; j++) {
+                            const currentSize = baseSize * (0.4 + Math.random() * 0.6), halfSize = Math.floor(currentSize / 2);
+                            let cx, cy;
+                            if (j === 0) { cx = Math.floor(Math.random() * this.gridWidth); cy = Math.floor(Math.random() * this.gridHeight); }
+                            else {
+                                const anchorSquare = squares[Math.floor(Math.random() * squares.length)], angle = Math.random() * 2 * Math.PI, distance = (anchorSquare.size / 2) * (0.6 + Math.random() * 0.4);
+                                cx = Math.floor(anchorSquare.x + Math.cos(angle) * distance); cy = Math.floor(anchorSquare.y + Math.sin(angle) * distance);
+                            }
+                            squares.push({ x: cx, y: cy, size: currentSize });
+                            for (let dx = -halfSize; dx <= halfSize; dx++) for (let dy = -halfSize; dy <= halfSize; dy++) if (localGetTerrain(cx + dx, cy + dy) === 'plains') localSetTerrain(cx + dx, cy + dy, type);
+                        }
+                    }
+                };
+                const generateFeature = (type, count, size) => {
+                    for (let i = 0; i < count; i++) {
+                        const cx = Math.floor(Math.random() * this.gridWidth), cy = Math.floor(Math.random() * this.gridHeight);
+                        for (let dx = -size; dx <= size; dx++) for (let dy = -size; dy <= size; dy++) if (Math.random() > (Pathfinder.getDistance(0, 0, dx, dy) / size)) if (localGetTerrain(cx + dx, cy + dy) === 'plains') localSetTerrain(cx + dx, cy + dy, type);
+                    }
+                };
+                generateMountainRanges('mountain', 40, 48);
+                generateFeature('forest', 500, 20);
+                this.terrainGrid = grid;
+            }
+
+            render(ctx, game) {
+                const topLeftWorld = game.screenToWorld(0, 0);
+                const bottomRightWorld = game.screenToWorld(game.canvasWidth, game.canvasHeight);
+                const startX = Math.max(0, Math.floor(topLeftWorld.x / GRID_SIZE));
+                const endX = Math.min(this.gridWidth - 1, Math.floor(bottomRightWorld.x / GRID_SIZE));
+                const startY = Math.max(0, Math.floor(topLeftWorld.y / GRID_SIZE));
+                const endY = Math.min(this.gridHeight - 1, Math.floor(bottomRightWorld.y / GRID_SIZE));
+
+                for (let x = startX; x <= endX; x++) {
+                    for (let y = startY; y <= endY; y++) {
+                        const worldX = x * GRID_SIZE;
+                        const worldY = y * GRID_SIZE;
+                        const type = this.terrainGrid[x][y];
+                        const screenPos = game.worldToScreen(worldX, worldY);
+                        const screenSize = GRID_SIZE * game.cameraZoom;
+                        ctx.fillStyle = TERRAIN_TYPES[type].color;
+                        ctx.fillRect(screenPos.x, screenPos.y, screenSize + 1, screenSize + 1);
+                    }
+                }
+            }
+        }
+        
+        // --- SECTION 4: "THINGS" CLASSES ---
+        
+        class Party {
+            constructor(name, x, y, partyType, factionId, speed, party, gold = 0, radius = 8) {
+                this.name = name;
+                this.x = x; this.y = y;
+                this.targetX = x; this.targetY = y;
+                this.partyType = partyType;
+                this.factionId = factionId;
+                this.color = FACTIONS[this.factionId]?.color || '#ffffff';
+                this.speed = speed;
+                this.party = party; // [{type: 'spearman', count: 10}]
+                this.gold = gold;
+                this.inventory = {};
+                this.radius = radius;
+                this.path = [];
+                this.aiState = 'patrolling';
+                this.aiDirective = { type: 'patrol' }; // {type: 'siege', targetId: 5}
+            }
+
+            getPartySize() {
+                return Party.getPartySize(this.party);
+            }
+            static getPartySize(party) {
+                if (!party) return 0;
+                return party.reduce((sum, troop) => sum + troop.count, 0);
+            }
+
+            getPartyAttack() {
+                return Party.getPartyAttack(this.party);
+            }
+            static getPartyAttack(party) {
+                if (!party) return 0;
+                return party.reduce((sum, troop) => sum + (troop.count * (TROOP_TYPES[troop.type]?.atk || 0)), 0);
+            }
+
+            getPartyDefense() {
+                 return Party.getPartyDefense(this.party);
+            }
+            static getPartyDefense(party) {
+                if (!party) return 0;
+                return party.reduce((sum, troop) => sum + (troop.count * (TROOP_TYPES[troop.type]?.def || 0)), 0);
+            }
+            
+            getPartyPower() {
+                return Party.getPartyPower(this.party);
+            }
+            static getPartyPower(party) {
+                if (!party) return 0;
+                return party.reduce((sum, troop) => sum + (troop.count * (TROOP_TYPES[troop.type]?.power || 0)), 0);
+            }
+
+            addTroops(type, count) {
+                const existingTroop = this.party.find(t => t.type === type);
+                if (existingTroop) {
+                    existingTroop.count += count;
+                } else {
+                    this.party.push({ type, count });
+                }
+            }
+            
+            static removeTroops(party, losses) {
+                let totalLosses = Math.round(losses);
+                if (!party) return [];
+                
+                const sortedTroopIndices = party.map((t, i) => ({ ...t, originalIndex: i }))
+                    .sort((a, b) => (TROOP_TYPES[a.type]?.cost || 0) - (TROOP_TYPES[b.type]?.cost || 0));
+                
+                for (let troopInfo of sortedTroopIndices) {
+                    if (totalLosses <= 0) break;
+                    const originalTroop = party[troopInfo.originalIndex];
+                    const lost = Math.min(originalTroop.count, totalLosses);
+                    originalTroop.count -= lost;
+                    totalLosses -= lost;
+                }
+                return party.filter(t => t.count > 0);
+            }
+            
+            updateSpeed() {
+                 if (this.partyType !== 'player') return;
+                 const speedMod = Math.max(0.5, 1 - (this.getPartySize() / 200));
+                 this.speed = BASE_PLAYER_SPEED * speedMod;
+            }
+
+            move(hoursPassed) {
+                if (!this.path || this.path.length === 0) return;
+                let distanceToTravel = this.speed * hoursPassed;
+                while (distanceToTravel > 0 && this.path.length > 0) {
+                    const nextNode = this.path[0];
+                    const distToNextNode = Pathfinder.getDistance(this.x, this.y, nextNode[0], nextNode[1]);
+                    if (distanceToTravel >= distToNextNode) {
+                        this.x = nextNode[0]; this.y = nextNode[1];
+                        distanceToTravel -= distToNextNode;
+                        this.path.shift();
+                    } else {
+                        const angle = Math.atan2(nextNode[1] - this.y, nextNode[0] - this.x);
+                        this.x += Math.cos(angle) * distanceToTravel;
+                        this.y += Math.sin(angle) * distanceToTravel;
+                        distanceToTravel = 0;
+                    }
+                }
+            }
+
+            updateAI(game) {
+                if (this.partyType === 'player' || this.partyType === 'caravan') return;
+
+                const SIGHT_RANGE = 4000;
+                const nearbyHostiles = [game.player, ...game.parties].filter(p => p !== this && game.isHostile(this, p) && Pathfinder.getDistance(this.x, this.y, p.x, p.y) < SIGHT_RANGE);
+
+                if (nearbyHostiles.length > 0) {
+                    const myPower = this.getPartyPower();
+                    const strongestEnemy = nearbyHostiles.reduce((strongest, current) => current.getPartyPower() > strongest.getPartyPower() ? current : strongest, nearbyHostiles[0]);
+                    
+                    if (myPower > strongestEnemy.getPartyPower() * 1.2) {
+                        this.aiState = 'chasing'; this.targetX = strongestEnemy.x; this.targetY = strongestEnemy.y;
+                        this.path = Pathfinder.findPathAStar(this.x, this.y, this.targetX, this.targetY, game.worldMap); return;
+                    } else {
+                        this.aiState = 'fleeing';
+                        const angle = Math.atan2(this.y - strongestEnemy.y, this.x - strongestEnemy.x);
+                        this.targetX = this.x + Math.cos(angle) * 5000; this.targetY = this.y + Math.sin(angle) * 5000;
+                        this.path = Pathfinder.findPathAStar(this.x, this.y, this.targetX, this.targetY, game.worldMap); return;
+                    }
+                }
+
+                // AI Directives for Lords
+                if (this.partyType === 'lord') {
+                    // If current path is finished or directive is new, get a new path
+                    if (this.path.length === 0 || this.aiState !== `executing_${this.aiDirective.type}`) {
+                        this.aiState = `executing_${this.aiDirective.type}`;
+                        
+                        let foundNewTask = false;
+                        switch(this.aiDirective.type) {
+                            case 'siege':
+                            case 'raid':
+                            case 'defend':
+                                const targetLocation = game.locations.find(l => l.id === this.aiDirective.targetId);
+                                if (targetLocation) {
+                                    let destX = targetLocation.x, destY = targetLocation.y;
+                                    if (this.aiDirective.type === 'defend') { // Patrol around the location
+                                        const angle = Math.random() * 2 * Math.PI;
+                                        const distance = 2000 + Math.random() * 3000;
+                                        destX += Math.cos(angle) * distance;
+                                        destY += Math.sin(angle) * distance;
+                                    }
+                                    this.targetX = destX; this.targetY = destY;
+                                    this.path = Pathfinder.findPathAStar(this.x, this.y, this.targetX, this.targetY, game.worldMap);
+                                    foundNewTask = true;
+                                }
+                                break;
+                            
+                            case 'hunt':
+                                const targets = game.parties.filter(p => 
+                                    p.partyType === this.aiDirective.targetType && 
+                                    game.isHostile(this, p)
+                                );
+                                if (targets.length > 0) {
+                                    // Find closest target
+                                    let closestTarget = targets[0];
+                                    let minDistance = Pathfinder.getDistance(this.x, this.y, closestTarget.x, closestTarget.y);
+                                    for (let i = 1; i < targets.length; i++) {
+                                        const dist = Pathfinder.getDistance(this.x, this.y, targets[i].x, targets[i].y);
+                                        if (dist < minDistance) {
+                                            minDistance = dist;
+                                            closestTarget = targets[i];
+                                        }
+                                    }
+                                    this.targetX = closestTarget.x; this.targetY = closestTarget.y;
+                                    this.path = Pathfinder.findPathAStar(this.x, this.y, this.targetX, this.targetY, game.worldMap);
+                                    foundNewTask = true;
+                                }
+                                break;
+                        }
+                        if(foundNewTask) return;
+                    } else {
+                        if (this.aiDirective.type !== 'patrol') return; 
+                    }
+                }
+
+                if ((this.path.length === 0 || this.aiState === 'fleeing' || this.aiState === 'chasing')) {
+                    this.aiState = 'patrolling';
+                    let targetX, targetY, attempts = 0;
+                    do {
+                        const angle = Math.random() * 2 * Math.PI;
+                        const distance = 5000 + Math.random() * 10000;
+                        targetX = this.x + Math.cos(angle) * distance;
+                        targetY = this.y + Math.sin(angle) * distance;
+                        attempts++;
+                    } while(game.worldMap.isImpassable(game.worldMap.getTerrainAt(targetX, targetY)) && attempts < 10);
+                    this.targetX = targetX; this.targetY = targetY;
+                    this.path = Pathfinder.findPathAStar(this.x, this.y, this.targetX, this.targetY, game.worldMap);
+                }
+            }
+
+            render(ctx, game) {
+                const screenPos = game.worldToScreen(this.x, this.y);
+                const screenRadius = this.radius * game.cameraZoom;
+                ctx.beginPath();
+                ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                 if (this === game.player) {
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                 }
+            }
+        }
+
+        class Location {
+            constructor(id, name, x, y, factionId) {
+                this.id = id;
+                this.name = name;
+                this.x = x; this.y = y;
+                this.factionId = factionId;
+                this.type = 'location';
+            }
+            
+            calculatePrice(goodKey, game) {
+                const good = GOODS[goodKey];
+                if (!good) return 9999;
+                let stock = (this.inventory && this.inventory[goodKey]) ? this.inventory[goodKey] : 1;
+                let priceModifier = Math.max(0.2, Math.min(5, good.idealStock / Math.max(1, stock)));
+                
+                // Economic warfare
+                if (good.type === 'military' && game.diplomacyManager.isFactionAtWarWithAnyone(this.factionId)) {
+                    priceModifier *= 1.5;
+                }
+                
+                return Math.round(good.basePrice * priceModifier);
+            }
+        }
+
+        class Town extends Location {
+            constructor(id, name, x, y, factionId, level, data) {
+                super(id, name, x, y, factionId);
+                this.type = 'town';
+                this.inventory = { grain: 100, wood: 100, ore: 50, leather: 50, bread: 30, tools: 10, armor: 5 };
+                this.barracks = { spearman: 20, swordsman: 10 };
+                this.garrison = [{ type: 'spearman', count: 50 }];
+                this.treasury = 10000;
+                this.level = level;
+                this.workshops = data.workshops || [];
+                this.needs = data.needs || [];
+                this.consumptionRate = 2;
+                this.villageIds = [];
+                this.isUnderSiege = false;
+                this.siegeProgress = 0;
+                this.siegeAttackerId = null;
+                this.hadShortageRecently = false;
+            }
+            
+            dailyUpdate(game) {
+                this.hadShortageRecently = false;
+                if (this.isUnderSiege) {
+                    this.siegeProgress++;
+                    if (this.siegeProgress >= 3) {
+                        const attacker = game.parties.find(p => p.id === this.siegeAttackerId);
+                        if(attacker) {
+                             Combat.resolveSiege(attacker, this, game);
+                        } else {
+                             // Attacker is gone, siege broken
+                             this.isUnderSiege = false; this.siegeProgress = 0; this.siegeAttackerId = null;
+                        }
+                    }
+                    return; // Economy halts during siege
+                }
+
+                // Replenish garrison slowly
+                if (Party.getPartySize(this.garrison) < this.level * 50 && this.treasury > 500) {
+                    const spearmanTroop = this.garrison.find(t => t.type === 'spearman');
+                    if (spearmanTroop) {
+                        spearmanTroop.count += 1;
+                    } else {
+                        this.garrison.push({ type: 'spearman', count: 1 });
+                    }
+                    this.treasury -= 5;
+                }
+
+                for (const need of this.needs) {
+                    const neededAmount = this.consumptionRate * this.level;
+                    const currentStock = this.inventory[need] || 0;
+                    if (currentStock >= neededAmount) {
+                        this.inventory[need] -= neededAmount;
+                    } else {
+                        this.inventory[need] = 0;
+                        this.hadShortageRecently = true;
+                    }
+                }
+                if (this.hadShortageRecently) game.uiManager.addMessage(`${this.name} is experiencing shortages!`, 'text-orange-400');
+
+                for (const workshop of this.workshops) {
+                    const productionCycles = workshop.rate * this.level;
+                    let canProduce = true;
+                    for (const inputKey in workshop.input) {
+                        if ((this.inventory[inputKey] || 0) < workshop.input[inputKey] * productionCycles) { canProduce = false; break; }
+                    }
+                    if (canProduce) {
+                        for (const inputKey in workshop.input) this.inventory[inputKey] -= workshop.input[inputKey] * productionCycles;
+                        this.inventory[workshop.output] = (this.inventory[workshop.output] || 0) + productionCycles;
+                    }
+                }
+
+                const goods = Object.keys(this.inventory);
+                for (const good of goods) {
+                    if (this.inventory[good] > 80 + GOODS[good].idealStock * 0.5) {
+                        if (!game.parties.some(p => p.originId === this.id && p.partyType === 'caravan' && p.aiState.startsWith('town_'))) {
+                            this.spawnTownCaravan(game, good);
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            changeOwner(newFactionId, game) {
+                this.factionId = newFactionId;
+                // Villages also change owner
+                this.villageIds.forEach(vid => {
+                    const village = game.locations.find(l => l.id === vid);
+                    if(village) village.factionId = newFactionId;
+                });
+            }
+
+            spawnTownCaravan(game, goodToSell) {
+                const amount = Math.min(this.inventory[goodToSell], 20);
+                if (amount <= 0) return;
+                const otherTowns = game.locations.filter(l => l.type === 'town' && l.id !== this.id && !game.diplomacyManager.areFactionsAtWar(this.factionId, l.factionId));
+                if (otherTowns.length === 0) return;
+                const destination = otherTowns[Math.floor(Math.random() * otherTowns.length)];
+
+                const caravan = game.createAIParty('caravan', `${this.name} Caravan`, this.x, this.y, this.factionId);
+                caravan.inventory[goodToSell] = amount;
+                this.inventory[goodToSell] -= amount;
+                
+                caravan.destinationId = destination.id;
+                caravan.originId = this.id;
+                caravan.aiState = 'town_selling';
+                caravan.shoppingList = this.needs;
+                caravan.targetX = destination.x;
+                caravan.targetY = destination.y;
+                caravan.path = Pathfinder.findPathAStar(caravan.x, caravan.y, caravan.targetX, caravan.targetY, game.worldMap);
+                game.parties.push(caravan);
+            }
+
+            render(ctx, game) {
+                const screenPos = game.worldToScreen(this.x, this.y);
+                const screenSize = 4500 * game.cameraZoom;
+
+                const factionColor = FACTIONS[this.factionId]?.color;
+                if (factionColor) {
+                    const borderSize = 250 * game.cameraZoom;
+                    ctx.fillStyle = factionColor;
+                    ctx.fillRect(screenPos.x - screenSize / 2 - borderSize, screenPos.y - screenSize / 2 - borderSize, screenSize + borderSize * 2, screenSize + borderSize * 2);
+                }
+
+                ctx.fillStyle = this.isUnderSiege ? '#b91c1c' : '#71717a';
+                ctx.fillRect(screenPos.x - screenSize / 2, screenPos.y - screenSize / 2, screenSize, screenSize);
+
+                if (game.cameraZoom > 0.4) {
+                    ctx.fillStyle = 'white'; ctx.font = `14px Inter`; ctx.textAlign = 'center'; ctx.shadowColor = 'black'; ctx.shadowBlur = 4;
+                    let label = this.isUnderSiege ? `SIEGE!` : `${this.name} (Lvl ${this.level})`;
+                    ctx.fillText(label, screenPos.x, screenPos.y - (screenSize / 2) - 5);
+                    ctx.shadowBlur = 0;
+                }
+            }
+        }
+        
+        class Village extends Location {
+            constructor(id, name, x, y, factionId, level, production, townId) {
+                super(id, name, x, y, factionId);
+                this.type = 'village';
+                this.level = level;
+                this.production = production;
+                this.townId = townId;
+                this.inventory = { [production]: 100 };
+                this.gold = 500;
+                this.isRaided = false;
+                this.raidCooldown = 0;
+            }
+
+            dailyUpdate(game) {
+                if (this.isRaided) {
+                    this.raidCooldown--;
+                    if (this.raidCooldown <= 0) {
+                        this.isRaided = false;
+                        game.uiManager.addMessage(`${this.name} has recovered from a raid.`, 'text-green-300');
+                    }
+                    return; // No production while raided
+                }
+                const producedAmount = (15 + Math.floor(Math.random() * 11)) * this.level;
+                this.inventory[this.production] = (this.inventory[this.production] || 0) + producedAmount;
+                if (this.inventory[this.production] >= 30 && !game.parties.some(p => p.originId === this.id && p.partyType === 'caravan')) {
+                    this.spawnVillageCaravan(game);
+                }
+            }
+
+            spawnVillageCaravan(game) {
+                const town = game.locations.find(l => l.id === this.townId);
+                if (!town || game.diplomacyManager.areFactionsAtWar(this.factionId, town.factionId)) return;
+                
+                const goodsToTransport = this.production;
+                const amount = Math.min(this.inventory[goodsToTransport], 30);
+                if (amount <= 0) return;
+                
+                const caravan = game.createAIParty('caravan', `${this.name} Caravan`, this.x, this.y, this.factionId);
+                caravan.inventory[goodsToTransport] = amount;
+                this.inventory[goodsToTransport] -= amount;
+                
+                caravan.destinationId = town.id;
+                caravan.originId = this.id;
+                caravan.aiState = 'delivering';
+                caravan.targetX = town.x;
+                caravan.targetY = town.y;
+                caravan.path = Pathfinder.findPathAStar(caravan.x, caravan.y, caravan.targetX, caravan.targetY, game.worldMap);
+                game.parties.push(caravan);
+            }
+
+            render(ctx, game) {
+                const screenPos = game.worldToScreen(this.x, this.y);
+                const screenSize = 1000 * game.cameraZoom;
+
+                const factionColor = FACTIONS[this.factionId]?.color;
+                if (factionColor) {
+                    const borderSize = 150 * game.cameraZoom;
+                    ctx.fillStyle = factionColor;
+                    ctx.fillRect(screenPos.x - screenSize / 2 - borderSize, screenPos.y - screenSize / 2 - borderSize, screenSize + borderSize * 2, screenSize + borderSize * 2);
+                }
+
+                ctx.fillStyle = this.isRaided ? '#7f1d1d' : '#a16207';
+                ctx.fillRect(screenPos.x - screenSize / 2, screenPos.y - screenSize / 2, screenSize, screenSize);
+                if (game.cameraZoom > 0.4) {
+                    ctx.fillStyle = 'white'; ctx.font = `14px Inter`; ctx.textAlign = 'center'; ctx.shadowColor = 'black'; ctx.shadowBlur = 4;
+                    let label = this.isRaided ? `Raided` : `${this.name} (Lvl ${this.level})`;
+                    ctx.fillText(label, screenPos.x, screenPos.y - (screenSize / 2) - 5);
+                    ctx.shadowBlur = 0;
+                }
+            }
+        }
+        
+        class BeastDen extends Location {
+            constructor(id, name, x, y, factionId, power) {
+                super(id, name, x, y, factionId);
+                this.type = 'beast_den';
+                this.power = power;
+            }
+
+            dailyUpdate(game) {
+                if (Math.random() < 0.3 + (this.power / 100)) {
+                    this.spawnBeastParty(game);
+                }
+            }
+            
+            spawnBeastParty(game) {
+                const partySize = 5 + Math.floor(this.power / 5);
+                const party = game.createAIParty('beast', 'Wild Beasts', this.x, this.y, 'beast');
+                party.party.push({ type: 'wild_beast', count: partySize });
+                party.homeDenId = this.id;
+                game.parties.push(party);
+            }
+
+            render(ctx, game) {
+                const screenPos = game.worldToScreen(this.x, this.y);
+                const screenSize = 1200 * game.cameraZoom;
+                ctx.fillStyle = '#581c87';
+                ctx.fillRect(screenPos.x - screenSize / 2, screenPos.y - screenSize / 2, screenSize, screenSize);
+                if (game.cameraZoom > 0.4) {
+                    ctx.fillStyle = 'white'; ctx.font = `14px Inter`; ctx.textAlign = 'center'; ctx.shadowColor = 'black'; ctx.shadowBlur = 4;
+                    let label = `${this.name} (Pwr ${this.power})`;
+                    ctx.fillText(label, screenPos.x, screenPos.y - (screenSize / 2) - 5);
+                    ctx.shadowBlur = 0;
+                }
+            }
+        }
+
+        // --- SECTION 5: MAIN GAME CLASS ---
+        
+        class Game {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.canvasWidth = 0;
+                this.canvasHeight = 0;
+
+                this.uiManager = new UIManager(this);
+                this.diplomacyManager = new DiplomacyManager();
+                this.worldMap = new WorldMap();
+                
+                this.player = null;
+                this.locations = [];
+                this.parties = [];
+                this.factions = {};
+                this.locationIdCounter = 0;
+                this.partyIdCounter = 0;
+
+                this.gameTime = 12;
+                this.currentDay = 1;
+                this.gameState = 'title';
+                this.gameSpeedMultiplier = 0;
+
+                this.cameraX = MAP_DIMENSION / 2;
+                this.cameraY = MAP_DIMENSION / 2;
+                this.cameraZoom = 1.0;
+                
+                this.currentLocation = null;
+                this.justLeftLocation = false;
+
+                this.animationFrameId = null;
+                this.lastTimestamp = 0;
+                
+                this.isDragging = false;
+                this.lastPanX = 0;
+                this.lastPanY = 0;
+                this.dragThreshold = 5;
+                this.dragStarted = false;
+                this.touchStartTime = 0;
+                this.touchStartPos = { x: 0, y: 0 };
+                this.isTapPending = false;
+                this.initialPinchDistance = 0;
+                
+                this.init();
+            }
+
+            init() {
+                this.resizeCanvas();
+                window.addEventListener('resize', () => this.resizeCanvas());
+                this.canvas.addEventListener('wheel', (e) => this.onWheelZoom(e), { passive: false });
+                this.canvas.addEventListener('mousedown', (e) => this.onPointerDown(e));
+                this.canvas.addEventListener('mousemove', (e) => this.onPointerMove(e));
+                this.canvas.addEventListener('mouseup', (e) => this.onPointerUp(e));
+                this.canvas.addEventListener('mouseleave', (e) => this.onPointerUp(e));
+                this.canvas.addEventListener('contextmenu', (e) => this.onRightClickMove(e));
+                this.canvas.addEventListener('touchstart', (e) => this.onPointerDown(e), { passive: false });
+                this.canvas.addEventListener('touchmove', (e) => this.onPointerMove(e), { passive: false });
+                this.canvas.addEventListener('touchend', (e) => this.onPointerUp(e));
+                this.canvas.addEventListener('touchcancel', (e) => this.onPointerUp(e));
+                
+                this.uiManager.checkSaveGameExists();
+                this.gameLoop();
+            }
+            
+            startNewGame() {
+                this.factions = {};
+                this.parties = [];
+                this.locationIdCounter = 0;
+                this.partyIdCounter = 0;
+
+                this.worldMap.generateTerrain();
+                this.generateLocations();
+                this.diplomacyManager.initialize(this.factions);
+                
+                let playerStartX = MAP_DIMENSION / 2, playerStartY = MAP_DIMENSION / 2;
+                if (this.locations.length > 0) {
+                     playerStartX = this.locations[0].x + 3000; playerStartY = this.locations[0].y + 3000;
+                }
+                while(this.worldMap.isImpassable(this.worldMap.getTerrainAt(playerStartX, playerStartY))) {
+                     playerStartX += (Math.random() - 0.5) * 1000; playerStartY += (Math.random() - 0.5) * 1000;
+                }
+
+                this.player = new Party('Player', playerStartX, playerStartY, 'player', 'player', BASE_PLAYER_SPEED, [{ type: 'spearman', count: 10 }], 1000, 8);
+                this.player.id = ++this.partyIdCounter;
+                
+                this.parties.push(this.createAIParty('bandit', 'Looter Party', 25000, 25000, 'bandit'));
+                this.parties.push(this.createAIParty('bandit', 'Looter Party', 75000, 75000, 'bandit'));
+
+                Object.values(this.factions).filter(f => f.id !== 'player').forEach(faction => {
+                    const capital = this.locations.find(l => l.id === faction.capitalTownId);
+                    if (capital) {
+                        this.parties.push(this.createAIParty('lord', `Lord of ${faction.name}`, capital.x + 2000, capital.y + 2000, faction.id));
+                    }
+                });
+                
+                this.gameTime = 12; this.currentDay = 1;
+                this.cameraX = this.player.x; this.cameraY = this.player.y; this.cameraZoom = 0.8;
+                
+                this.uiManager.elements.titleScreen.classList.add('hidden');
+                this.uiManager.elements.uiOverlay.classList.remove('hidden');
+                this.gameState = 'map';
+                this.gameSpeedMultiplier = 0;
+
+                this.uiManager.elements.messageLog.innerHTML = '';
+                this.uiManager.addMessage("Welcome to the realm.", "text-green-400");
+                this.uiManager.addMessage("Right-click or Tap to move.", "text-zinc-400");
+                this.uiManager.addMessage("Left-click & drag or Pan to move camera.", "text-zinc-400");
+                
+                this.uiManager.updatePlayerStats(this.player, this.currentDay);
+                this.uiManager.updateTimeUI(this.currentDay, this.gameTime);
+                this.uiManager.updateTimeControlButton();
+
+                if (!this.animationFrameId) {
+                    this.lastTimestamp = 0;
+                    this.gameLoop();
+                }
+            }
+
+            gameLoop(timestamp) {
+                if (!this.lastTimestamp) this.lastTimestamp = timestamp;
+                const deltaTime = (timestamp - this.lastTimestamp) / 1000;
+                this.lastTimestamp = timestamp;
+
+                if (this.gameState === 'map' && this.gameSpeedMultiplier > 0) {
+                    this.update(deltaTime);
+                }
+                
+                this.render();
+                this.animationFrameId = requestAnimationFrame((t) => this.gameLoop(t));
+            }
+            
+            update(deltaTime) {
+                const gameHoursPassed = (deltaTime / REAL_SECONDS_PER_GAME_HOUR) * this.gameSpeedMultiplier;
+                this.gameTime += gameHoursPassed;
+
+                const newDay = Math.floor(this.gameTime / 24) + 1;
+                if (newDay > this.currentDay) {
+                    this.currentDay = newDay;
+                    this.dailyUpdate();
+                }
+                this.uiManager.updateTimeUI(this.currentDay, this.gameTime);
+                
+                this.player.move(gameHoursPassed);
+                if (this.player.path && this.player.path.length === 0 && Pathfinder.getDistance(this.player.x, this.player.y, this.player.targetX, this.player.targetY) < 10) {
+                     this.gameSpeedMultiplier = 0;
+                     this.uiManager.updateTimeControlButton();
+                }
+
+                this.parties.forEach(party => {
+                    party.updateAI(this);
+                    party.move(gameHoursPassed);
+                });
+                
+                this.checkPartyArrivals();
+                this.checkInteractions();
+                this.uiManager.updatePlayerStats(this.player, this.currentDay);
+            }
+            
+            render() {
+                if (!this.ctx) return;
+                this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+                if (this.gameState === 'title') return;
+
+                this.worldMap.render(this.ctx, this);
+
+                this.locations.forEach(loc => loc.render(this.ctx, this));
+                this.parties.forEach(party => party.render(this.ctx, this));
+                if (this.player) {
+                    if (this.player.path && this.player.path.length > 0) {
+                        const playerScreen = this.worldToScreen(this.player.x, this.player.y);
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(playerScreen.x, playerScreen.y);
+                        for (const node of this.player.path) {
+                            const nodeScreen = this.worldToScreen(node[0], node[1]);
+                            this.ctx.lineTo(nodeScreen.x, nodeScreen.y);
+                        }
+                        this.ctx.strokeStyle = 'rgba(135, 206, 250, 0.6)';
+                        this.ctx.lineWidth = 2;
+                        this.ctx.stroke();
+                    }
+                    this.player.render(this.ctx, this);
+                }
+            }
+
+            worldToScreen(worldX, worldY) {
+                const screenX = (worldX - this.cameraX) * this.cameraZoom + this.canvasWidth / 2;
+                const screenY = (worldY - this.cameraY) * this.cameraZoom + this.canvasHeight / 2;
+                return { x: screenX, y: screenY };
+            }
+
+            screenToWorld(screenX, screenY) {
+                const worldX = (screenX - this.canvasWidth / 2) / this.cameraZoom + this.cameraX;
+                const worldY = (screenY - this.canvasHeight / 2) / this.cameraZoom + this.cameraY;
+                return { x: worldX, y: worldY };
+            }
+
+            resizeCanvas() {
+                this.canvasWidth = this.canvas.clientWidth;
+                this.canvasHeight = this.canvas.clientHeight;
+                this.canvas.width = this.canvasWidth;
+                this.canvas.height = this.canvasHeight;
+            }
+            
+            pauseGame() {
+                this.gameSpeedMultiplier = 0;
+                this.uiManager.updateTimeControlButton();
+            }
+
+            dailyUpdate() {
+                this.uiManager.addMessage(`A new day has dawned. It is Day ${this.currentDay}.`, 'text-yellow-300');
+                this.locations.forEach(loc => loc.dailyUpdate(this));
+                this.diplomacyManager.dailyUpdate(this);
+            }
+            
+            checkPartyArrivals() {
+                this.parties = this.parties.filter(party => {
+                    if (party.partyType === 'caravan' && (!party.path || party.path.length === 0)) {
+                        const destination = this.locations.find(l => l.id === party.destinationId);
+                        const origin = this.locations.find(l => l.id === party.originId);
+
+                        // If origin or destination is gone, caravan disappears
+                        if (!destination || !origin) {
+                            return false;
+                        }
+
+                        // If war breaks out, return home
+                        if (destination.id !== origin.id && this.diplomacyManager.areFactionsAtWar(party.factionId, destination.factionId)) {
+                            this.uiManager.addMessage(`${party.name} is returning to ${origin.name} due to war.`, 'text-orange-300');
+                            party.destinationId = origin.id;
+                            party.targetX = origin.x;
+                            party.targetY = origin.y;
+                            party.path = Pathfinder.findPathAStar(party.x, party.y, party.targetX, party.targetY, this.worldMap);
+                            return true; // Keep caravan, it has a new path now.
+                        }
+
+                        // Arrived at destination (which is NOT home)
+                        if (destination.id !== origin.id) {
+                            if (party.aiState === 'delivering') { // Village caravan at town
+                                for (const goodKey in party.inventory) {
+                                    const amount = party.inventory[goodKey];
+                                    destination.inventory[goodKey] = (destination.inventory[goodKey] || 0) + amount;
+                                    const value = destination.calculatePrice(goodKey, this) * amount * 0.8;
+                                    party.gold = (party.gold || 0) + value;
+                                    destination.treasury = Math.max(0, destination.treasury - value);
+                                }
+                            } else if (party.aiState === 'town_selling') { // Town caravan at other town
+                                let earnedGold = 0;
+                                for (const goodKey in party.inventory) {
+                                    const amount = party.inventory[goodKey];
+                                    const value = destination.calculatePrice(goodKey, this) * amount;
+                                    if (destination.treasury >= value) {
+                                        destination.treasury -= value;
+                                        destination.inventory[goodKey] = (destination.inventory[goodKey] || 0) + amount;
+                                        earnedGold += value;
+                                    }
+                                }
+                                party.gold = (party.gold || 0) + earnedGold;
+                                // Buy needed goods
+                                for (const neededGood of (party.shoppingList || [])) {
+                                    const price = destination.calculatePrice(neededGood, this);
+                                    if(price > 0 && party.gold > price) {
+                                         const toBuy = Math.min(destination.inventory[neededGood] || 0, Math.floor(party.gold / price), 20);
+                                        if (toBuy > 0) {
+                                            const cost = toBuy * price;
+                                            party.gold -= cost; destination.inventory[neededGood] -= toBuy; destination.treasury += cost;
+                                            party.inventory[neededGood] = (party.inventory[neededGood] || 0) + toBuy;
+                                        }
+                                    }
+                                }
+                            }
+                            party.inventory = {};
+
+                            // Relation boost for successful trade
+                            if(party.factionId !== destination.factionId) {
+                                this.diplomacyManager.modifyRelation(party.factionId, destination.factionId, 0.5, this);
+                            }
+
+                            // Set course for home
+                            party.destinationId = origin.id;
+                            party.targetX = origin.x;
+                            party.targetY = origin.y;
+                            party.path = Pathfinder.findPathAStar(party.x, party.y, party.targetX, party.targetY, this.worldMap);
+                            return true; // Keep caravan in game
+                        } else { // Arrived back at origin
+                            if (origin.type === 'village') {
+                                origin.gold += party.gold || 0;
+                            } else if (origin.type === 'town') {
+                                origin.treasury += party.gold || 0;
+                                for (const goodKey in party.inventory) {
+                                    origin.inventory[goodKey] = (origin.inventory[goodKey] || 0) + party.inventory[goodKey];
+                                }
+                            }
+                            return false; // Journey complete, remove caravan
+                        }
+                    }
+                    return true; // Keep party
+                });
+            }
+
+            isHostile(p1, p2) {
+                if (!p1 || !p2) return false;
+                const type1 = p1.partyType, faction1 = p1.factionId;
+                const type2 = p2.partyType, faction2 = p2.factionId;
+
+                if (faction1 === faction2) return false;
+
+                if (faction1 === 'beast' && faction2 !== 'beast') return true;
+                if (faction2 === 'beast' && faction1 !== 'beast') return true;
+
+                const isCivilianOrLord1 = ['player', 'caravan', 'lord'].includes(type1);
+                const isCivilianOrLord2 = ['player', 'caravan', 'lord'].includes(type2);
+                if (faction1 === 'bandit' && isCivilianOrLord2) return true;
+                if (faction2 === 'bandit' && isCivilianOrLord1) return true;
+                
+                const majorFactions = this.diplomacyManager.factionIds || [];
+                if (majorFactions.includes(faction1) && majorFactions.includes(faction2)) {
+                     return this.diplomacyManager.areFactionsAtWar(faction1, faction2);
+                }
+
+                return false;
+            }
+
+            checkInteractions() {
+                if (this.gameState !== 'map') return;
+                
+                if (!this.justLeftLocation) {
+                    for (const loc of this.locations) {
+                        if (Pathfinder.getDistance(this.player.x, this.player.y, loc.x, loc.y) < 1000) {
+                            this.player.path = [];
+                            if (loc.type === 'town') { this.uiManager.openTownModal(loc); return; }
+                            if (loc.type === 'village') { this.uiManager.openVillageModal(loc); return; }
+                        }
+                    }
+                }
+                
+                // Lord interactions with locations (siege/raid)
+                for (const lord of this.parties.filter(p => p.partyType === 'lord' && p.path.length === 0)) {
+                    const target = this.locations.find(l => l.id === lord.aiDirective?.targetId);
+                    if (!target) continue;
+
+                    if (lord.aiDirective.type === 'siege' && target.type === 'town' && !target.isUnderSiege) {
+                        target.isUnderSiege = true;
+                        target.siegeProgress = 0;
+                        target.siegeAttackerId = lord.id;
+                        this.uiManager.addMessage(`${lord.name} is besieging ${target.name}!`, 'text-orange-500');
+                    } else if (lord.aiDirective.type === 'raid' && target.type === 'village' && !target.isRaided) {
+                        target.isRaided = true;
+                        target.raidCooldown = 5; // 5 days
+                        const goldStolen = Math.min(target.gold, Math.floor(Math.random() * 500) + 200);
+                        target.gold -= goldStolen;
+                        lord.gold += goldStolen;
+                        this.uiManager.addMessage(`${lord.name} has raided ${target.name}!`, 'text-orange-500');
+                        lord.aiDirective = { type: 'patrol' }; // Find something new to do
+                    }
+                }
+
+                const allParties = [this.player, ...this.parties];
+                for (let i = 0; i < allParties.length; i++) {
+                    for (let j = i + 1; j < allParties.length; j++) {
+                        const p1 = allParties[i];
+                        const p2 = allParties[j];
+                        if (!p1 || !p2) continue; // Party might have been removed in a previous combat this frame
+                        if (Pathfinder.getDistance(p1.x, p1.y, p2.x, p2.y) < 150) {
+                            if (this.isHostile(p1, p2)) {
+                                Combat.resolve(p1, p2, this);
+                                // After combat, parties might be removed, so we need to restart checks
+                                // A bit inefficient, but safest way to avoid errors with stale party references
+                                this.checkInteractions();
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+
+            generateLocations() {
+                this.factions = {};
+                const townData = [
+                    { name: 'Vikingr', factionId: 'vikingr', villages: [{ name: 'Vikingr Fields', p: 'grain' }, { name: 'Vikingr Woods', p: 'wood' }], needs: ['meat', 'tools', 'armor'], workshops: [{ output: 'bread', input: { 'grain': 2 }, rate: 10 }] },
+                    { name: 'Sarran', factionId: 'sarran', villages: [{ name: 'Sarran Dairies', p: 'butter' }, { name: 'Sarran Tanners', p: 'leather' }], needs: ['grain', 'wood', 'tools'], workshops: [{ output: 'armor', input: { 'leather': 2, 'ore': 1 }, rate: 2 }] },
+                    { name: 'Vaegir', factionId: 'vaegir', villages: [{ name: 'Vaegir Stables', p: 'horses' }, { name: 'Vaegir Farms', p: 'cheese' }], needs: ['grain', 'bread', 'leather', 'armor'] },
+                    { name: 'Rhodok', factionId: 'rhodok', villages: [{ name: 'Rhodok Mines', p: 'ore' }, { name: 'Rhodok Hunters', p: 'meat' }], needs: ['butter', 'horses', 'bread'], workshops: [{ output: 'tools', input: { 'ore': 2, 'wood': 1 }, rate: 3 }] }
+                ];
+                const newLocations = [];
+                const MIN_TOWN_DISTANCE = 20000, MIN_VILLAGE_DISTANCE = 4000, MAX_VILLAGE_DISTANCE = 6000, MIN_VILLAGE_TO_VILLAGE_DISTANCE = 2000, EDGE_MARGIN = 5000, MAX_TOWN_ATTEMPTS = 100;
+                const spawnedTowns = [];
+                const findValidPoint = (minX, maxX, minY, maxY, maxTries = 20) => {
+                    for (let i = 0; i < maxTries; i++) {
+                        const x = Math.random() * (maxX - minX) + minX, y = Math.random() * (maxY - minY) + minY;
+                        if (!this.worldMap.isImpassable(this.worldMap.getTerrainAt(x, y))) return { x, y };
+                    } return null;
+                };
+
+                this.factions['player'] = { ...FACTIONS['player'], id: 'player', capitalTownId: null, treasury: 0 };
+
+                for (const data of townData) {
+                    let townPos = null;
+                    for (let i = 0; i < MAX_TOWN_ATTEMPTS; i++) {
+                        const candidatePos = findValidPoint(EDGE_MARGIN, this.worldMap.mapWidth - EDGE_MARGIN, EDGE_MARGIN, this.worldMap.mapHeight - EDGE_MARGIN, MAX_TOWN_ATTEMPTS);
+                        if (!candidatePos) continue;
+                        if (spawnedTowns.every(t => Pathfinder.getDistance(candidatePos.x, candidatePos.y, t.x, t.y) >= MIN_TOWN_DISTANCE)) { townPos = candidatePos; break; }
+                    }
+                    if (townPos) {
+                        const townId = ++this.locationIdCounter;
+                        const faction = FACTIONS[data.factionId];
+                        if (faction && !this.factions[data.factionId]) {
+                            this.factions[data.factionId] = { ...faction, id: data.factionId, capitalTownId: townId, treasury: 50000 };
+                        }
+                        const townObject = new Town(townId, data.name, townPos.x, townPos.y, data.factionId, 1, data);
+                        spawnedTowns.push({ ...townPos });
+                        const spawnedVillagesForTown = [];
+                        for (const villageData of data.villages) {
+                            let villagePos = null;
+                            for (let i = 0; i < 250; i++) {
+                                const angle = Math.random() * 2 * Math.PI, distance = Math.random() * (MAX_VILLAGE_DISTANCE - MIN_VILLAGE_DISTANCE) + MIN_VILLAGE_DISTANCE;
+                                const vx = townPos.x + Math.cos(angle) * distance, vy = townPos.y + Math.sin(angle) * distance;
+                                if (vx > EDGE_MARGIN && vx < this.worldMap.mapWidth - EDGE_MARGIN && vy > EDGE_MARGIN && vy < this.worldMap.mapHeight - EDGE_MARGIN && !this.worldMap.isImpassable(this.worldMap.getTerrainAt(vx, vy))) {
+                                    if (spawnedVillagesForTown.every(v => Pathfinder.getDistance(vx, vy, v.x, v.y) > MIN_VILLAGE_TO_VILLAGE_DISTANCE)) { villagePos = { x: vx, y: vy }; break; }
+                                }
+                            }
+                            if (villagePos) {
+                                const villageId = ++this.locationIdCounter;
+                                townObject.villageIds.push(villageId);
+                                spawnedVillagesForTown.push({ ...villagePos });
+                                newLocations.push(new Village(villageId, villageData.name, villagePos.x, villagePos.y, data.factionId, 1, villageData.p, townId));
+                            }
+                        }
+                        newLocations.push(townObject);
+                    }
+                }
+                
+                const NUM_DENS = 5, MIN_DIST_FROM_TOWN = 5000;
+                for (let i = 0; i < NUM_DENS; i++) {
+                    let denPos = null;
+                    for (let attempt = 0; attempt < 100; attempt++) {
+                        const candidatePos = findValidPoint(EDGE_MARGIN, this.worldMap.mapWidth - EDGE_MARGIN, EDGE_MARGIN, this.worldMap.mapHeight - EDGE_MARGIN, 100);
+                        if(candidatePos && newLocations.filter(l => l.type === 'town').every(town => Pathfinder.getDistance(candidatePos.x, candidatePos.y, town.x, town.y) >= MIN_DIST_FROM_TOWN)) {
+                            denPos = candidatePos; break;
+                        }
+                    }
+                    if (denPos) {
+                        const denId = ++this.locationIdCounter;
+                        newLocations.push(new BeastDen(denId, 'Beast Den', denPos.x, denPos.y, 'beast', 10));
+                    }
+                }
+                this.locations = newLocations;
+            }
+            
+            createAIParty(partyType, name, x, y, factionId) {
+                let party, speed, radius = 6, gold = 0;
+                
+                switch(partyType) {
+                    case 'bandit': party = [{ type: 'looter', count: 10 + Math.floor(Math.random() * 10) }]; speed = 15000; break;
+                    case 'caravan': party = [{ type: 'spearman', count: 5 }]; speed = 13000; radius = 4; break;
+                    case 'beast': party = []; speed = 17000; radius = 7; break;
+                    case 'lord': party = [ { type: 'spearman', count: 20 }, { type: 'swordsman', count: 5 } ]; speed = 16000; gold = 5000; break;
+                    default: party = []; speed = 15000;
+                }
+                
+                let locX = x, locY = y, attempts = 0;
+                while(this.worldMap.isImpassable(this.worldMap.getTerrainAt(locX, locY)) && attempts < 50) {
+                    locX = x + (Math.random() - 0.5) * 4000; locY = y + (Math.random() - 0.5) * 4000; attempts++;
+                }
+                const newParty = new Party(name, locX, locY, partyType, factionId, speed, party, gold, radius);
+                newParty.id = ++this.partyIdCounter;
+                return newParty;
+            }
+
+            // --- Save/Load and Input Handling ---
+            saveGame() { /* ... */ }
+            loadGame() { /* ... */ }
+            onWheelZoom(e) { e.preventDefault(); /* ... */ }
+            onPointerDown(e) { /* ... */ }
+            onPointerMove(e) { /* ... */ }
+            onPointerUp(e) { /* ... */ }
+            onRightClickMove(e) { e.preventDefault(); /* ... */ }
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            const game = new Game();
+            
+            // Re-implementing methods with access to `game` instance that were hard to fit in the class structure
+            Game.prototype.saveGame = function() {
+                try {
+                    const saveData = {
+                        player: this.player,
+                        locations: this.locations,
+                        parties: this.parties,
+                        factions: this.factions,
+                        gameTime: this.gameTime,
+                        currentDay: this.currentDay,
+                        cameraX: this.cameraX,
+                        cameraY: this.cameraY,
+                        cameraZoom: this.cameraZoom,
+                        locationIdCounter: this.locationIdCounter,
+                        partyIdCounter: this.partyIdCounter,
+                        terrainGrid: this.worldMap.terrainGrid,
+                        diplomacy: {
+                            relations: this.diplomacyManager.relations,
+                            states: this.diplomacyManager.states,
+                            warExhaustion: this.diplomacyManager.warExhaustion,
+                            factionIds: this.diplomacyManager.factionIds,
+                        }
+                    };
+                    localStorage.setItem('bannerlord2d_save', JSON.stringify(saveData));
+                    this.uiManager.addMessage("Game Saved Successfully!", 'text-green-400');
+                    if (this.gameState === 'paused') this.uiManager.closeStats();
+                } catch (error) {
+                    console.error("Error saving game:", error);
+                    this.uiManager.addMessage("Failed to save game. Storage might be full.", 'text-red-500');
+                }
+            }
+
+            Game.prototype.loadGame = function() {
+                 const savedDataString = localStorage.getItem('bannerlord2d_save');
+                if (!savedDataString) {
+                    this.uiManager.addMessage("No save game found.", 'text-red-400');
+                    return false;
+                }
+                try {
+                    const saveData = JSON.parse(savedDataString);
+                    this.worldMap.terrainGrid = saveData.terrainGrid;
+                    this.locations = saveData.locations.map(locData => {
+                        if (locData.type === 'town') return Object.assign(new Town(0, '', 0, 0, '', 0, {}), locData);
+                        if (locData.type === 'village') return Object.assign(new Village(0, '', 0, 0, '', 0, '', 0, ''), locData);
+                        if (locData.type === 'beast_den') return Object.assign(new BeastDen(0, '', 0, 0, '', 0), locData);
+                        return Object.assign(new Location(0, '', 0, 0, ''), locData);
+                    });
+                    this.parties = saveData.parties.map(pData => {
+                        const p = Object.assign(new Party('', 0, 0, '', '', 0, []), pData);
+                        p.path = p.path || []; // Ensure path is always an array for stability
+                        return p;
+                    });
+                    this.player = Object.assign(new Party('', 0, 0, '', '', 0, []), saveData.player);
+                    this.player.path = this.player.path || []; // Also for the player
+
+                    this.factions = saveData.factions;
+
+                    this.diplomacyManager.initialize(this.factions);
+                    if (saveData.diplomacy) {
+                        this.diplomacyManager.relations = saveData.diplomacy.relations;
+                        this.diplomacyManager.states = saveData.diplomacy.states;
+                        this.diplomacyManager.warExhaustion = saveData.diplomacy.warExhaustion || {};
+                        this.diplomacyManager.factionIds = saveData.diplomacy.factionIds;
+                    }
+                    
+                    this.gameTime = saveData.gameTime; this.currentDay = saveData.currentDay;
+                    this.cameraX = saveData.cameraX; this.cameraY = saveData.cameraY;
+                    this.cameraZoom = saveData.cameraZoom;
+                    this.locationIdCounter = saveData.locationIdCounter;
+                    this.partyIdCounter = saveData.partyIdCounter || 0;
+
+                    this.uiManager.elements.titleScreen.classList.add('hidden');
+                    this.uiManager.elements.uiOverlay.classList.remove('hidden');
+                    this.uiManager.closeStats();
+                    this.gameState = 'map';
+
+                    this.uiManager.updatePlayerStats(this.player, this.currentDay);
+                    this.uiManager.updateTimeUI(this.currentDay, this.gameTime);
+                    this.uiManager.updateTimeControlButton();
+                    this.uiManager.elements.messageLog.innerHTML = '';
+                    this.uiManager.addMessage("Game Loaded Successfully!", 'text-green-400');
+                    return true;
+                } catch (error) {
+                    console.error("Error loading game:", error);
+                    this.uiManager.addMessage("Failed to load save data. It may be corrupted.", 'text-red-500');
+                    localStorage.removeItem('bannerlord2d_save');
+                    return false;
+                }
+            }
+            
+            Game.prototype.onWheelZoom = function(e) {
+                e.preventDefault(); if (this.gameState !== 'map') return;
+                const rect = this.canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                const worldPosBeforeZoom = this.screenToWorld(mouseX, mouseY);
+                const zoomAmount = e.deltaY > 0 ? 0.9 : 1.1;
+                this.cameraZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, this.cameraZoom * zoomAmount));
+                const worldPosAfterZoom = this.screenToWorld(mouseX, mouseY);
+                this.cameraX += worldPosBeforeZoom.x - worldPosAfterZoom.x;
+                this.cameraY += worldPosBeforeZoom.y - worldPosAfterZoom.y;
+            };
+
+            const getTouchPos = (touch, canvas) => {
+                const rect = canvas.getBoundingClientRect();
+                return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+            };
+
+            Game.prototype.onPointerDown = function(e) {
+                if (e.type === 'mousedown' && e.button !== 0) return; if (this.gameState !== 'map') return;
+                const pos = e.touches ? getTouchPos(e.touches[0], this.canvas) : { x: e.clientX, y: e.clientY };
+                this.isDragging = true; this.lastPanX = pos.x; this.lastPanY = pos.y; this.dragStarted = false;
+                if (e.touches) {
+                    if (e.touches.length === 1) {
+                        this.isTapPending = true; this.touchStartTime = Date.now();
+                        this.touchStartPos = getTouchPos(e.touches[0], this.canvas);
+                    } else if (e.touches.length === 2) {
+                        this.isTapPending = false;
+                        const pos0 = getTouchPos(e.touches[0], this.canvas), pos1 = getTouchPos(e.touches[1], this.canvas);
+                        this.initialPinchDistance = Pathfinder.getDistance(pos0.x, pos0.y, pos1.x, pos1.y);
+                    }
+                }
+            };
+            Game.prototype.onPointerMove = function(e) {
+                if (!this.isDragging) return;
+                if(e.touches && e.touches.length === 2) {
+                    if (this.initialPinchDistance <= 0) return;
+                    const pos0 = getTouchPos(e.touches[0], this.canvas), pos1 = getTouchPos(e.touches[1], this.canvas);
+                    const newPinchDistance = Pathfinder.getDistance(pos0.x, pos0.y, pos1.x, pos1.y);
+                    const zoomAmount = newPinchDistance / this.initialPinchDistance;
+                    const pinchCenter = { x: (pos0.x + pos1.x) / 2, y: (pos0.y + pos1.y) / 2 };
+                    const worldPosBeforeZoom = this.screenToWorld(pinchCenter.x, pinchCenter.y);
+                    this.cameraZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, this.cameraZoom * zoomAmount));
+                    const worldPosAfterZoom = this.screenToWorld(pinchCenter.x, pinchCenter.y);
+                    this.cameraX += worldPosBeforeZoom.x - worldPosAfterZoom.x;
+                    this.cameraY += worldPosBeforeZoom.y - worldPosAfterZoom.y;
+                    this.initialPinchDistance = newPinchDistance;
+                    return;
+                }
+                const pos = e.touches ? getTouchPos(e.touches[0], this.canvas) : { x: e.clientX, y: e.clientY };
+                if (!this.dragStarted) {
+                    if (Pathfinder.getDistance(this.lastPanX, this.lastPanY, pos.x, pos.y) > this.dragThreshold) {
+                        this.dragStarted = true; this.isTapPending = false;
+                    }
+                }
+                if (this.dragStarted) {
+                    const dx = pos.x - this.lastPanX; const dy = pos.y - this.lastPanY;
+                    this.cameraX -= dx / this.cameraZoom; this.cameraY -= dy / this.cameraZoom;
+                }
+                this.lastPanX = pos.x; this.lastPanY = pos.y;
+            };
+            Game.prototype.onPointerUp = function(e) {
+                if (this.isTapPending && !this.dragStarted) {
+                    if (Date.now() - this.touchStartTime < 250) {
+                        this.setPlayerTargetFromScreen(this.touchStartPos.x, this.touchStartPos.y);
+                    }
+                }
+                this.isDragging = false; this.dragStarted = false; this.isTapPending = false; this.initialPinchDistance = 0;
+            };
+            Game.prototype.onRightClickMove = function(e) {
+                e.preventDefault();
+                this.setPlayerTargetFromScreen(e.offsetX, e.offsetY);
+            };
+            Game.prototype.setPlayerTargetFromScreen = function(screenX, screenY) {
+                if (this.gameState !== 'map') return;
+                const worldCoords = this.screenToWorld(screenX, screenY);
+                const terrainType = this.worldMap.getTerrainAt(worldCoords.x, worldCoords.y);
+                if (this.worldMap.isImpassable(terrainType)) {
+                    this.uiManager.addMessage(`You cannot travel on ${TERRAIN_TYPES[terrainType].name}.`, 'text-red-400');
+                    return;
+                }
+                if (Pathfinder.getDistance(this.player.x, this.player.y, worldCoords.x, worldCoords.y) > this.player.radius * 2) {
+                    this.gameSpeedMultiplier = 1;
+                }
+                this.player.targetX = worldCoords.x;
+                this.player.targetY = worldCoords.y;
+                this.player.path = Pathfinder.findPathAStar(this.player.x, this.player.y, this.player.targetX, this.player.targetY, this.worldMap);
+                this.uiManager.updateTimeControlButton();
+            };
+        });
+    </script>
+</body>
+</html>
