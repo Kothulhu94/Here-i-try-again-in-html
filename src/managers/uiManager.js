@@ -1,7 +1,4 @@
-import { FACTIONS, GOODS, TROOP_TYPES } from '../config.js';
-import { Party } from '../game-objects/party.js';
-
-export class UIManager {
+class UIManager {
     constructor(game) {
         this.game = game;
         this.elements = {

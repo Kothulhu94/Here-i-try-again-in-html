@@ -1,7 +1,4 @@
-import { TROOP_HP } from '../config.js';
-import { Party } from '../game-objects/party.js';
-
-export class Combat {
+class Combat {
     static resolve(partyA, partyB, game) {
         const isPlayerInvolved = partyA === game.player || partyB === game.player;
         const playerParty = isPlayerInvolved ? (partyA === game.player ? partyA : partyB) : null;

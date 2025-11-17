@@ -1,7 +1,4 @@
-import { FACTIONS, TROOP_TYPES, BASE_PLAYER_SPEED } from '../config.js';
-import { Pathfinder } from '../utils/pathfinder.js';
-
-export class Party {
+class Party {
     constructor(name, x, y, partyType, factionId, speed, party, gold = 0, radius = 8) {
         this.name = name;
         this.x = x; this.y = y;

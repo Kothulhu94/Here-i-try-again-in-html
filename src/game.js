@@ -1,13 +1,4 @@
-import { UIManager } from './managers/uiManager.js';
-import { DiplomacyManager } from './managers/diplomacyManager.js';
-import { WorldMap } from './systems/worldMap.js';
-import { Party } from './game-objects/party.js';
-import { Town, Village, BeastDen, Location } from './game-objects/locations.js';
-import { Pathfinder } from './utils/pathfinder.js';
-import { Combat } from './systems/combat.js';
-import { FACTIONS, BASE_PLAYER_SPEED, REAL_SECONDS_PER_GAME_HOUR, MIN_ZOOM, MAX_ZOOM, MAP_DIMENSION, TERRAIN_TYPES } from './config.js';
-
-export class Game {
+class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');

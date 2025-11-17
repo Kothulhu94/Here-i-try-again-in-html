@@ -1,6 +1,4 @@
-import { GRID_SIZE, MAP_DIMENSION, TERRAIN_TYPES } from '../config.js';
-
-export class WorldMap {
+class WorldMap {
     constructor() {
         this.mapWidth = MAP_DIMENSION;
         this.mapHeight = MAP_DIMENSION;

@@ -1,8 +1,4 @@
-import { FACTIONS, GOODS } from '../config.js';
-import { Party } from './party.js';
-import { Combat } from '../systems/combat.js';
-
-export class Location {
+class Location {
     constructor(id, name, x, y, factionId) {
         this.id = id;
         this.name = name;

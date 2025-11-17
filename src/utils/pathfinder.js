@@ -1,6 +1,4 @@
-import { GRID_SIZE } from '../config.js';
-
-export class Pathfinder {
+class Pathfinder {
     static isLineOfSightClear(startX, startY, endX, endY, worldMap) {
         const dist = this.getDistance(startX, startY, endX, endY);
         const steps = Math.floor(dist / (GRID_SIZE / 2));

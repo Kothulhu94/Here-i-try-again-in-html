@@ -1,4 +1,4 @@
-export class DiplomacyManager {
+class DiplomacyManager {
     constructor() {
         this.relations = {}; // { factionA: { factionB: 0 } }
         this.states = {};    // { factionA: { factionB: 'neutral' } }
