@@ -1,0 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=MedievalSharp&family=Inter:wght@400;600;700&display=swap');
+
+        html, body {
+            overscroll-behavior: none;
+            touch-action: none;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .font-medieval {
+            font-family: 'MedievalSharp', cursive;
+        }
+
+        /* Prevent flashing on click for buttons */
+        button, a {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Custom scrollbar for log */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #27272a; /* zinc-800 */
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #52525b; /* zinc-600 */
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #71717a; /* zinc-500 */
+        }
+
+        /* Prevent canvas context menu */
+        #gameCanvas {
+            touch-action: none;
+            cursor: grab;
+        }
+        #gameCanvas:active {
+            cursor: grabbing;
+        }
+
+        /* Quantity Input */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
