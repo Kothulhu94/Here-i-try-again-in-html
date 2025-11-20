@@ -21,7 +21,7 @@ class Location {
     }
 }
 
-export class Town extends Location {
+class Town extends Location {
     constructor(id, name, x, y, factionId, level, data) {
         super(id, name, x, y, factionId);
         this.type = 'town';
@@ -152,7 +152,7 @@ export class Town extends Location {
     }
 }
 
-export class Village extends Location {
+class Village extends Location {
     constructor(id, name, x, y, factionId, level, production, townId) {
         super(id, name, x, y, factionId);
         this.type = 'village';
@@ -224,7 +224,7 @@ export class Village extends Location {
     }
 }
 
-export class BeastDen extends Location {
+class BeastDen extends Location {
     constructor(id, name, x, y, factionId, power) {
         super(id, name, x, y, factionId);
         this.type = 'beast_den';
