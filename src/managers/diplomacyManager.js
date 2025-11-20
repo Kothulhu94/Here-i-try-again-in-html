@@ -137,6 +137,41 @@ class DiplomacyManager {
         return totalPower;
     }
 
+    calculateWarDesire(myFaction, targetFaction, myStrength, targetStrength, relation) {
+        let score = 0;
+        const aggressiveness = myFaction.aggressiveness || 0.5;
+
+        // Opportunity Factor
+        if (myStrength > targetStrength * 1.5) {
+            score += 30;
+        }
+
+        // Desperation Factor
+        if (myFaction.treasury < 2000) {
+            score += 40;
+        } else if (myFaction.treasury > 20000) {
+            score -= 10;
+        }
+
+        // Hatred Factor
+        if (relation < -50) {
+            score += 20;
+        }
+        if (relation < -80) {
+            score += 10;
+        }
+
+        // Fear Factor
+        if (myStrength < targetStrength * 0.8) {
+            score -= 50;
+        }
+
+        // Personality
+        score += (aggressiveness * 20);
+
+        return Math.max(0, Math.min(100, score));
+    }
+
     factionStrategicUpdate(factionId, game) {
         const myFaction = game.factions[factionId];
         if (!myFaction) return;
@@ -158,8 +193,20 @@ class DiplomacyManager {
                     game.uiManager.addMessage(`${myFaction.name} paid ${reparations}G to ${game.factions[otherFactionId].name} for peace.`, 'text-yellow-400');
                 }
             } else {
-                if (relation < -70 && myStrength > otherStrength * (1.5 - (myFaction.aggressiveness || 0.5))) {
-                    this.setDiplomaticState(factionId, otherFactionId, 'war', game);
+                const targetFaction = game.factions[otherFactionId];
+                const warDesire = this.calculateWarDesire(myFaction, targetFaction, myStrength, otherStrength, relation);
+
+                if (warDesire > 70) {
+                    // Pass null for game to suppress the default generic message
+                    this.setDiplomaticState(factionId, otherFactionId, 'war', null);
+
+                    if (myFaction.treasury < 2000) {
+                        game.uiManager.addMessage(`${myFaction.name} declares war on ${targetFaction.name} to plunder their riches!`, 'text-red-500 font-bold');
+                    } else if (myStrength > otherStrength * 1.5) {
+                        game.uiManager.addMessage(`${myFaction.name} sees weakness in ${targetFaction.name} and attacks!`, 'text-red-500 font-bold');
+                    } else {
+                        game.uiManager.addMessage(`${myFaction.name} declares war on ${targetFaction.name} due to escalating tensions.`, 'text-red-500 font-bold');
+                    }
                 }
             }
         }
