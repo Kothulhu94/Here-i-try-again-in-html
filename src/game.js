@@ -43,6 +43,31 @@ class Game {
 
         this.raycaster = null;
 
+        // Global debugging - accessible from console
+        window.gameDebug = {
+            getState: () => ({
+                gameState: this.gameState,
+                gameTime: this.gameTime,
+                currentDay: this.currentDay,
+                speedMultiplier: this.gameSpeedMultiplier,
+                partyCount: this.parties.length,
+                playerParty: this.player ? this.player.party : null,
+                playerPos: this.player ? { x: this.player.x, y: this.player.y } : null
+            }),
+            listParties: () => this.parties.map(p => ({
+                name: p.name,
+                type: p.partyType,
+                faction: p.factionId,
+                pos: { x: p.x.toFixed(0), y: p.y.toFixed(0) },
+                partySize: p.getPartySize(),
+                aiState: p.aiState
+            })),
+            getPlayer: () => this.player,
+            pauseGame: () => { this.gameSpeedMultiplier = 0; console.log('⏸️ Game paused'); },
+            resumeGame: () => { this.gameSpeedMultiplier = 1; console.log('▶️ Game resumed'); }
+        };
+        console.log('🐛 Debug mode enabled. Use window.gameDebug in console.');
+
         this.init();
     }
 
@@ -153,31 +178,46 @@ class Game {
     }
 
     gameLoop(timestamp) {
-        if (!this.lastTimestamp) this.lastTimestamp = timestamp;
-        const deltaTime = (timestamp - this.lastTimestamp) / 1000;
-        this.lastTimestamp = timestamp;
+        try {
+            if (!this.lastTimestamp) this.lastTimestamp = timestamp;
+            const deltaTime = (timestamp - this.lastTimestamp) / 1000;
+            this.lastTimestamp = timestamp;
 
-        if (this.gameState === 'map' && this.gameSpeedMultiplier > 0) {
-            this.update(deltaTime);
-        } else if (this.gameState === 'fps_combat' && this.raycaster) {
-            this.raycaster.update(deltaTime);
+            if (this.gameState === 'map' && this.gameSpeedMultiplier > 0) {
+                this.update(deltaTime);
+            } else if (this.gameState === 'fps_combat' && this.raycaster) {
+                this.raycaster.update(deltaTime);
+            }
+
+            this.render();
+            this.animationFrameId = requestAnimationFrame((t) => this.gameLoop(t));
+        } catch (error) {
+            console.error('❌ GAME LOOP ERROR:', error);
+            console.error('Stack:', error.stack);
+            console.log('Game State:', this.gameState);
+            console.log('Game Time:', this.gameTime);
+            console.log('Current Day:', this.currentDay);
+            console.log('Parties:', this.parties.length);
+            throw error; // Re-throw to stop execution
         }
-
-        this.render();
-        this.animationFrameId = requestAnimationFrame((t) => this.gameLoop(t));
     }
 
     update(deltaTime) {
+        const updateStartTime = performance.now();
+        console.log(`🔄 UPDATE START - Time: ${this.gameTime.toFixed(2)}h, Day: ${this.currentDay}`);
+
         const gameHoursPassed = (deltaTime / REAL_SECONDS_PER_GAME_HOUR) * this.gameSpeedMultiplier;
         this.gameTime += gameHoursPassed;
 
         const newDay = Math.floor(this.gameTime / 24) + 1;
         if (newDay > this.currentDay) {
             this.currentDay = newDay;
+            console.log('📅 NEW DAY:', newDay);
             this.dailyUpdate();
         }
         this.uiManager.updateTimeUI(this.currentDay, this.gameTime);
 
+        console.log('👤 Player update...');
         this.player.updateSpeed();
         this.player.move(gameHoursPassed);
         if (this.player.path && this.player.path.length === 0 && Pathfinder.getDistance(this.player.x, this.player.y, this.player.targetX, this.player.targetY) < 10) {
@@ -185,14 +225,36 @@ class Game {
             this.uiManager.updateTimeControlButton();
         }
 
-        this.parties.forEach(party => {
-            party.updateAI(this);
-            party.move(gameHoursPassed);
+        console.log(`🤖 Updating ${this.parties.length} AI parties...`);
+        this.parties.forEach((party, index) => {
+            try {
+                party.updateAI(this);
+                party.move(gameHoursPassed);
+            } catch (error) {
+                console.error(`❌ Error updating party ${index} (${party.name}):`, error);
+                throw error;
+            }
         });
 
+        console.log('📦 Checking party arrivals...');
         this.checkPartyArrivals();
+
+        console.log('⚔️ Checking interactions...');
+        const interactionStartTime = performance.now();
         this.checkInteractions();
+        const interactionTime = performance.now() - interactionStartTime;
+        if (interactionTime > 100) {
+            console.warn(`⚠️ checkInteractions took ${interactionTime.toFixed(2)}ms!`);
+        }
+
         this.uiManager.updatePlayerStats(this.player, this.currentDay);
+
+        const updateTime = performance.now() - updateStartTime;
+        console.log(`✅ UPDATE END - Took ${updateTime.toFixed(2)}ms\n`);
+
+        if (updateTime > 500) {
+            console.error(`🚨 UPDATE TAKING TOO LONG: ${updateTime.toFixed(2)}ms`);
+        }
     }
 
     render() {
@@ -358,7 +420,14 @@ class Game {
         return false;
     }
 
-    checkInteractions() {
+    checkInteractions(recursionDepth = 0) {
+        if (recursionDepth > 10) {
+            console.error('🚨 RECURSION LIMIT HIT in checkInteractions!');
+            console.log('Player:', this.player.x, this.player.y);
+            console.log('Parties:', this.parties.map(p => ({ name: p.name, x: p.x, y: p.y, type: p.partyType })));
+            return; // Prevent infinite recursion
+        }
+
         if (this.gameState !== 'map') return;
 
         if (!this.justLeftLocation) {
@@ -392,15 +461,24 @@ class Game {
         }
 
         const allParties = [this.player, ...this.parties];
+        console.log(`🔍 Checking ${allParties.length} parties for combat...`);
+
         for (let i = 0; i < allParties.length; i++) {
             for (let j = i + 1; j < allParties.length; j++) {
                 const p1 = allParties[i];
                 const p2 = allParties[j];
                 if (!p1 || !p2) continue;
-                if (Pathfinder.getDistance(p1.x, p1.y, p2.x, p2.y) < 150) {
-                    if (this.isHostile(p1, p2)) {
+
+                const distance = Pathfinder.getDistance(p1.x, p1.y, p2.x, p2.y);
+                if (distance < 150) {
+                    const hostile = this.isHostile(p1, p2);
+                    console.log(`💥 Parties close: ${p1.name} vs ${p2.name}, Distance: ${distance.toFixed(1)}, Hostile: ${hostile}`);
+
+                    if (hostile) {
+                        console.log(`⚔️ COMBAT TRIGGERED (recursion: ${recursionDepth}): ${p1.name} vs ${p2.name}`);
                         Combat.resolve(p1, p2, this);
-                        this.checkInteractions();
+                        console.log(`⚔️ Combat resolved, re-checking interactions...`);
+                        this.checkInteractions(recursionDepth + 1);
                         return;
                     }
                 }
