@@ -213,21 +213,17 @@ class Game {
     }
 
     update(deltaTime) {
-        const updateStartTime = performance.now();
-        console.log(`🔄 UPDATE START - Time: ${this.gameTime.toFixed(2)}h, Day: ${this.currentDay}`);
-
         const gameHoursPassed = (deltaTime / REAL_SECONDS_PER_GAME_HOUR) * this.gameSpeedMultiplier;
         this.gameTime += gameHoursPassed;
 
         const newDay = Math.floor(this.gameTime / 24) + 1;
         if (newDay > this.currentDay) {
             this.currentDay = newDay;
-            console.log('📅 NEW DAY:', newDay);
+            console.log('📅 DAY', newDay, '| Time:', this.gameTime.toFixed(1), '| Parties:', this.parties.length);
             this.dailyUpdate();
         }
         this.uiManager.updateTimeUI(this.currentDay, this.gameTime);
 
-        console.log('👤 Player update...');
         this.player.updateSpeed();
         this.player.move(gameHoursPassed);
         if (this.player.path && this.player.path.length === 0 && Pathfinder.getDistance(this.player.x, this.player.y, this.player.targetX, this.player.targetY) < 10) {
@@ -235,7 +231,6 @@ class Game {
             this.uiManager.updateTimeControlButton();
         }
 
-        console.log(`🤖 Updating ${this.parties.length} AI parties...`);
         this.parties.forEach((party, index) => {
             try {
                 party.updateAI(this);
@@ -246,25 +241,9 @@ class Game {
             }
         });
 
-        console.log('📦 Checking party arrivals...');
         this.checkPartyArrivals();
-
-        console.log('⚔️ Checking interactions...');
-        const interactionStartTime = performance.now();
         this.checkInteractions();
-        const interactionTime = performance.now() - interactionStartTime;
-        if (interactionTime > 100) {
-            console.warn(`⚠️ checkInteractions took ${interactionTime.toFixed(2)}ms!`);
-        }
-
         this.uiManager.updatePlayerStats(this.player, this.currentDay);
-
-        const updateTime = performance.now() - updateStartTime;
-        console.log(`✅ UPDATE END - Took ${updateTime.toFixed(2)}ms\n`);
-
-        if (updateTime > 500) {
-            console.error(`🚨 UPDATE TAKING TOO LONG: ${updateTime.toFixed(2)}ms`);
-        }
     }
 
     render() {

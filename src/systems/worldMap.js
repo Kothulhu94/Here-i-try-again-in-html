@@ -85,12 +85,13 @@ class WorldMap {
                 ctx.fillStyle = TERRAIN_TYPES[type].color;
                 ctx.fillRect(screenPos.x, screenPos.y, screenSize + 1, screenSize + 1);
 
-                if (type === 'forest') {
-                    ctx.font = `${screenSize * 0.8}px sans-serif`;
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText('🌲', screenPos.x + screenSize / 2, screenPos.y + screenSize / 2);
-                }
+                // Emoji rendering is VERY expensive - disabled for performance
+                // if (type === 'forest') {
+                //     ctx.font = `${screenSize * 0.8}px sans-serif`;
+                //     ctx.textAlign = 'center';
+                //     ctx.textBaseline = 'middle';
+                //     ctx.fillText('🌲', screenPos.x + screenSize / 2, screenPos.y + screenSize / 2);
+                // }
             }
         }
     }
