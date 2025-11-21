@@ -1,7 +1,7 @@
 class Pathfinder {
     static isLineOfSightClear(startX, startY, endX, endY, worldMap) {
         const dist = this.getDistance(startX, startY, endX, endY);
-        const steps = Math.floor(dist / (GRID_SIZE / 2));
+        const steps = Math.floor(dist / (GRID_SIZE / 8)); // Increased resolution to prevent corner cutting
         if (steps <= 1) return true;
         const dx = (endX - startX) / steps;
         const dy = (endY - startY) / steps;
@@ -43,6 +43,7 @@ class Pathfinder {
             if (current.x === endNode.x && current.y === endNode.y) {
                 const total_path = []; let temp = current;
                 while (temp) { total_path.unshift([temp.x * GRID_SIZE + GRID_SIZE / 2, temp.y * GRID_SIZE + GRID_SIZE / 2]); temp = cameFrom.get(nodeKey(temp)); }
+                total_path[0] = [startX, startY]; // Start exactly where the unit is
                 total_path.push([endX, endY]);
                 return this.smoothPath(total_path, worldMap);
             }
@@ -56,8 +57,8 @@ class Pathfinder {
                     if (worldMap.isImpassable(terrainType)) continue;
 
                     if (dx !== 0 && dy !== 0) {
-                        const adjacent1Terrain = worldMap.getTerrainAt((current.x + dx) * GRID_SIZE + GRID_SIZE/2, current.y * GRID_SIZE + GRID_SIZE/2);
-                        const adjacent2Terrain = worldMap.getTerrainAt(current.x * GRID_SIZE + GRID_SIZE/2, (current.y + dy) * GRID_SIZE + GRID_SIZE/2);
+                        const adjacent1Terrain = worldMap.getTerrainAt((current.x + dx) * GRID_SIZE + GRID_SIZE / 2, current.y * GRID_SIZE + GRID_SIZE / 2);
+                        const adjacent2Terrain = worldMap.getTerrainAt(current.x * GRID_SIZE + GRID_SIZE / 2, (current.y + dy) * GRID_SIZE + GRID_SIZE / 2);
                         if (worldMap.isImpassable(adjacent1Terrain) || worldMap.isImpassable(adjacent2Terrain)) {
                             continue;
                         }

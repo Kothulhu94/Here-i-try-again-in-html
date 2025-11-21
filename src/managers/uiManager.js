@@ -108,7 +108,7 @@ class UIManager {
     }
 
     checkSaveGameExists() {
-         if (!localStorage.getItem('bannerlord2d_save')) {
+        if (!localStorage.getItem('bannerlord2d_save')) {
             this.elements.loadGameButton.disabled = true;
             this.elements.loadGameModalButton.disabled = true;
         } else {
@@ -154,13 +154,22 @@ class UIManager {
 
     updatePlayerStats(player, day) {
         if (!player) return;
-        player.updateSpeed();
         this.elements.dayStat.textContent = day;
         this.elements.goldStat.textContent = `${player.gold} G`;
-        this.elements.armyStat.textContent = player.getPartySize();
+        this.elements.armyStat.textContent = `${player.getPartySize()} / ${player.getMaxPartySize()}`;
         this.elements.attackStat.textContent = player.getPartyAttack();
         this.elements.defenseStat.textContent = player.getPartyDefense();
         this.elements.speedStat.textContent = player.speed.toFixed(0);
+
+        // Add Renown/Influence/Tier display if not present (hacky injection for now)
+        let riStat = document.getElementById('ri-stat');
+        if (!riStat) {
+            riStat = document.createElement('div');
+            riStat.id = 'ri-stat';
+            riStat.className = 'flex gap-4 text-sm text-zinc-400 mt-1';
+            this.elements.goldStat.parentElement.parentElement.appendChild(riStat);
+        }
+        riStat.innerHTML = `<span>Renown: <span class="text-white">${player.renown}</span> (Tier ${player.getClanTier()})</span> <span>Influence: <span class="text-white">${player.influence}</span></span>`;
 
         const inventoryEl = this.elements.inventoryStat;
         inventoryEl.innerHTML = '';
@@ -168,7 +177,7 @@ class UIManager {
         if (goods.length === 0 || goods.every(key => player.inventory[key] <= 0)) {
             inventoryEl.innerHTML = '<p class="text-zinc-500">No goods.</p>';
         } else {
-            goods.sort((a,b) => GOODS[a].name.localeCompare(GOODS[b].name)).forEach(key => {
+            goods.sort((a, b) => GOODS[a].name.localeCompare(GOODS[b].name)).forEach(key => {
                 const amount = player.inventory[key];
                 if (amount > 0) {
                     const good = GOODS[key];
@@ -181,53 +190,152 @@ class UIManager {
         }
     }
 
-    openStats() {
-        if (this.game.gameState === 'map') {
-            this.game.pauseGame();
-            this.game.gameState = 'paused';
-            this.updatePlayerStats(this.game.player, this.game.currentDay);
-            this.elements.statsModal.classList.remove('hidden');
+    openTownModal(town) {
+        this.game.pauseGame();
+        this.game.gameState = 'town';
+        this.game.currentLocation = town;
+        this.elements.townNameEl.textContent = town.name;
+
+        const faction = FACTIONS[town.factionId];
+        if (faction) {
+            this.elements.townFactionEl.textContent = faction.name;
+            this.elements.townFactionEl.style.color = faction.color;
+        } else {
+            this.elements.townFactionEl.textContent = '';
         }
-    }
-    closeStats() {
-        this.elements.statsModal.classList.add('hidden');
-        if (this.game.gameState === 'paused') {
-            this.game.gameState = 'map';
+
+        this.elements.townLevelEl.textContent = town.level;
+        this.elements.townTreasuryEl.textContent = `${town.treasury} G`;
+        this.elements.townGarrisonSizeEl.textContent = Party.getPartySize(town.garrison);
+
+        // Inject Keep Tab if missing
+        if (!document.getElementById('town-keep-tab-btn')) {
+            const btn = document.createElement('button');
+            btn.id = 'town-keep-tab-btn';
+            btn.className = 'town-tab-button px-4 py-2 rounded hover:bg-zinc-700 text-zinc-400';
+            btn.dataset.tab = 'keep';
+            btn.textContent = 'Keep';
+            this.elements.townTabs.appendChild(btn);
         }
+        // Inject Keep Content if missing
+        if (!document.getElementById('town-keep-tab')) {
+            const content = document.createElement('div');
+            content.id = 'town-keep-tab';
+            content.className = 'town-tab-content hidden';
+            document.getElementById('town-market-tab').parentElement.appendChild(content);
+        }
+
+        this.updateTownMarketUI(town);
+        this.updateRecruitmentUI(town);
+        this.updateTownPoliticsUI(town);
+        this.updateTownKeepUI(town);
+
+        document.querySelectorAll('.town-tab-content').forEach(el => el.classList.add('hidden'));
+        document.getElementById('town-market-tab').classList.remove('hidden');
+        document.querySelectorAll('.town-tab-button').forEach(btn => {
+            btn.classList.remove('bg-zinc-700', 'text-white');
+            btn.classList.add('text-zinc-400');
+        });
+        document.querySelector('.town-tab-button[data-tab="market"]').classList.add('bg-zinc-700', 'text-white');
+        this.elements.townModal.classList.remove('hidden');
     }
 
-    openLog() {
-        if (this.game.gameState === 'map') {
-            this.game.pauseGame();
-            this.game.gameState = 'paused';
-            this.elements.logModal.classList.remove('hidden');
-        }
-    }
-    closeLog() {
-        this.elements.logModal.classList.add('hidden');
-        if (this.game.gameState === 'paused') {
-            this.game.gameState = 'map';
-        }
-    }
+    updateTownKeepUI(town) {
+        const container = document.getElementById('town-keep-tab');
+        container.innerHTML = '';
 
-    openKingdoms() {
-        if (this.game.gameState === 'map') {
-            this.game.pauseGame();
-            this.game.gameState = 'paused';
-            this.updateKingdomsUI();
-            this.elements.kingdomsModal.classList.remove('hidden');
+        // Owner Info
+        const ownerName = town.ownerId ? (this.game.parties.find(p => p.id === town.ownerId)?.name || 'Unknown Lord') : (FACTIONS[town.factionId]?.name + ' Leadership');
+        container.innerHTML += `<div class="bg-zinc-900 p-4 rounded mb-4"><h3 class="font-medieval text-lg text-zinc-300">Town Status</h3><p class="text-sm text-zinc-400">Owner: <span class="text-white">${ownerName}</span></p><p class="text-sm text-zinc-400">Loyalty: <span class="${town.loyalty < 30 ? 'text-red-500' : 'text-green-400'}">${town.loyalty.toFixed(1)}</span></p><p class="text-sm text-zinc-400">Security: <span class="${town.security < 30 ? 'text-red-500' : 'text-green-400'}">${town.security.toFixed(1)}</span></p></div>`;
+
+        // Projects (If Player Owned)
+        const isPlayerOwned = town.factionId === this.game.player.factionId && (this.game.player.factionId === 'player' || town.ownerId === this.game.player.id);
+
+        if (isPlayerOwned) {
+            let projectsHtml = `<div class="bg-zinc-900 p-4 rounded mb-4"><h3 class="font-medieval text-lg text-zinc-300 mb-2">Projects</h3><div class="space-y-2">`;
+            for (const key in town.projects) {
+                const proj = town.projects[key];
+                const isActive = town.activeProject === key;
+                projectsHtml += `<div class="flex justify-between items-center bg-zinc-800 p-2 rounded">
+                    <div><div class="font-bold text-sm">${proj.name} (Lvl ${proj.level})</div><div class="text-xs text-zinc-500">${proj.desc}</div></div>
+                    <div class="flex items-center gap-2">
+                        ${isActive ? `<span class="text-xs text-yellow-400">Building... ${proj.progress}/${proj.target}</span>` : `<button class="bg-blue-600 hover:bg-blue-700 text-xs px-2 py-1 rounded" onclick="window.startProject('${town.id}', '${key}')">Build</button>`}
+                    </div>
+                </div>`;
+            }
+            projectsHtml += `</div></div>`;
+            container.innerHTML += projectsHtml;
+
+            // Hack to make the onclick work since we are in a module
+            window.startProject = (townId, projectKey) => {
+                const t = this.game.locations.find(l => l.id == townId);
+                if (t) {
+                    t.activeProject = projectKey;
+                    this.updateTownKeepUI(t);
+                }
+            };
         }
-    }
-    closeKingdoms() {
-        this.elements.kingdomsModal.classList.add('hidden');
-        if (this.game.gameState === 'paused') {
-            this.game.gameState = 'map';
+
+        // Contracts (If Independent or Mercenary)
+        if (this.game.player.factionId === 'player' || this.game.player.allegianceType === 'mercenary') {
+            if (town.factionId !== 'player' && town.factionId !== 'bandit' && town.factionId !== 'beast') {
+                const faction = FACTIONS[town.factionId];
+                container.innerHTML += `<div class="bg-zinc-900 p-4 rounded"><h3 class="font-medieval text-lg text-zinc-300 mb-2">Diplomacy</h3>
+                 <div class="flex gap-2">
+                    ${this.game.player.allegianceType !== 'mercenary' ? `<button id="btn-merc" class="bg-yellow-700 hover:bg-yellow-600 text-white px-4 py-2 rounded w-full">Sign Mercenary Contract</button>` : ''}
+                    ${this.game.player.getClanTier() >= 1 ? `<button id="btn-vassal" class="bg-purple-700 hover:bg-purple-600 text-white px-4 py-2 rounded w-full">Swear Fealty</button>` : '<div class="text-xs text-zinc-500">Clan Tier 1 required for vassalage.</div>'}
+                 </div></div>`;
+
+                setTimeout(() => {
+                    const btnMerc = document.getElementById('btn-merc');
+                    if (btnMerc) btnMerc.addEventListener('click', () => {
+                        this.game.diplomacyManager.setPlayerAllegiance(town.factionId, 'mercenary', this.game);
+                        this.updateTownKeepUI(town);
+                        this.updatePlayerStats(this.game.player, this.game.currentDay);
+                    });
+                    const btnVassal = document.getElementById('btn-vassal');
+                    if (btnVassal) btnVassal.addEventListener('click', () => {
+                        this.game.diplomacyManager.setPlayerAllegiance(town.factionId, 'vassal', this.game);
+                        this.updateTownKeepUI(town);
+                        this.updatePlayerStats(this.game.player, this.game.currentDay);
+                    });
+                }, 0);
+            }
         }
     }
 
     updateKingdomsUI() {
         const contentEl = this.elements.kingdomsContentEl;
         contentEl.innerHTML = '';
+
+        // Call to Army Button
+        if (this.game.player.allegianceType === 'vassal' || this.game.player.factionId !== 'player') {
+            contentEl.innerHTML += `<div class="bg-zinc-800 p-4 rounded mb-4 flex justify-between items-center">
+                <div><h3 class="font-bold text-white">Call to Army</h3><p class="text-xs text-zinc-400">Spend 50 Influence to call nearby lords.</p></div>
+                <button id="btn-call-army" class="bg-red-700 hover:bg-red-600 text-white px-4 py-2 rounded">Call Lords (50 Inf)</button>
+             </div>`;
+            setTimeout(() => {
+                const btn = document.getElementById('btn-call-army');
+                if (btn) btn.addEventListener('click', () => {
+                    if (this.game.player.influence >= 50) {
+                        this.game.player.influence -= 50;
+                        let count = 0;
+                        this.game.parties.forEach(p => {
+                            if (p.factionId === this.game.player.factionId && p.partyType === 'lord' && Pathfinder.getDistance(this.game.player.x, this.game.player.y, p.x, p.y) < 5000) {
+                                p.armyLeaderId = this.game.player.id;
+                                p.aiState = 'following_army';
+                                count++;
+                            }
+                        });
+                        this.addMessage(`Called ${count} lords to your army!`, 'text-green-400');
+                        this.updatePlayerStats(this.game.player, this.game.currentDay);
+                    } else {
+                        this.addMessage("Not enough influence!", "text-red-500");
+                    }
+                });
+            }, 0);
+        }
+
         const factionIds = this.game.diplomacyManager.factionIds.filter(id => id !== 'player');
 
         let tableHtml = `<h3 class="font-medieval text-xl text-blue-400 mb-2">Diplomatic Relations</h3><table class="w-full text-sm text-left text-zinc-300 mb-6">`;
@@ -267,82 +375,68 @@ class UIManager {
             factionHtml += `<div class="grid grid-cols-2 gap-2 text-sm">`;
             factionHtml += `<div><strong>Strength:</strong> ${strength.toFixed(0)}</div>`;
             factionHtml += `<div><strong>Treasury:</strong> ${faction.treasury} G</div>`;
-            factionHtml += `<div class="col-span-2"><strong>Towns:</strong> ${towns.length > 0 ? towns.map(t=>t.name).join(', ') : 'None'}</div>`;
-            factionHtml += `<div class="col-span-2"><strong>Villages:</strong> ${villages.length > 0 ? villages.map(v=>v.name).join(', ') : 'None'}</div>`;
+            factionHtml += `<div class="col-span-2"><strong>Towns:</strong> ${towns.length > 0 ? towns.map(t => t.name).join(', ') : 'None'}</div>`;
+            factionHtml += `<div class="col-span-2"><strong>Villages:</strong> ${villages.length > 0 ? villages.map(v => v.name).join(', ') : 'None'}</div>`;
             factionHtml += `</div></div>`;
             contentEl.innerHTML += factionHtml;
         });
     }
 
-    leaveTown() {
-        this.elements.townModal.classList.add('hidden');
-        this.game.gameState = 'map';
-        this.game.currentLocation = null;
-        this.game.justLeftLocation = true;
-        setTimeout(() => { this.game.justLeftLocation = false; }, 2000);
-    }
-
-    leaveVillage() {
-        this.elements.villageModal.classList.add('hidden');
-        this.game.gameState = 'map';
-        this.game.currentLocation = null;
-        this.game.justLeftLocation = true;
-        setTimeout(() => { this.game.justLeftLocation = false; }, 2000);
-    }
-
-    showCombatReport(data) {
-        this.elements.combatTitle.textContent = data.title;
-        this.elements.combatResult.textContent = data.result;
-        this.elements.combatResult.className = `text-2xl font-bold text-center mb-4 ${data.result === 'Victory!' ? 'text-green-400' : 'text-red-400'}`;
-        this.elements.combatPlayerParty.textContent = data.playerPartyDesc;
-        this.elements.combatEnemyParty.textContent = data.enemyPartyDesc;
-        this.elements.combatLog.innerHTML = data.log;
-        this.elements.combatPlayerLosses.textContent = data.playerLosses;
-        this.elements.combatEnemyLosses.textContent = data.enemyLosses;
-        this.elements.combatModal.classList.remove('hidden');
-    }
-
-    closeCombatReport() {
-        this.elements.combatModal.classList.add('hidden');
-        this.game.gameState = 'map';
-    }
-
-    openTownModal(town) {
+    showCombatOptions(partyA, partyB) {
         this.game.pauseGame();
-        this.game.gameState = 'town';
-        this.game.currentLocation = town;
-        this.elements.townNameEl.textContent = town.name;
+        this.game.gameState = 'combat_menu';
 
-        const faction = FACTIONS[town.factionId];
-        if (faction) {
-            this.elements.townFactionEl.textContent = faction.name;
-            this.elements.townFactionEl.style.color = faction.color;
-        } else {
-            this.elements.townFactionEl.textContent = '';
+        const enemyParty = (partyA === this.game.player) ? partyB : partyA;
+
+        // Create modal if not exists (reuse combat modal structure or create new)
+        // I'll inject a simple modal for now
+        let modal = document.getElementById('combat-options-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'combat-options-modal';
+            modal.className = 'fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden';
+            modal.innerHTML = `
+                <div class="bg-zinc-900 border-2 border-zinc-600 p-6 rounded-lg max-w-md w-full text-center">
+                    <h2 class="font-medieval text-2xl text-red-500 mb-4">Battle Imminent!</h2>
+                    <p class="text-zinc-300 mb-6" id="combat-desc">You have encountered an enemy.</p>
+                    <div class="flex flex-col gap-3">
+                        <button id="btn-auto-resolve" class="bg-zinc-700 hover:bg-zinc-600 text-white px-4 py-3 rounded font-bold">Command Troops (Auto-Resolve)</button>
+                        <button id="btn-fps-combat" class="bg-red-700 hover:bg-red-600 text-white px-4 py-3 rounded font-bold border border-red-500">Lead the Charge (3D FPS)</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
         }
 
-        this.elements.townLevelEl.textContent = town.level;
-        this.elements.townTreasuryEl.textContent = `${town.treasury} G`;
-        this.elements.townGarrisonSizeEl.textContent = Party.getPartySize(town.garrison);
+        const descEl = modal.querySelector('#combat-desc');
+        descEl.textContent = `You have encountered ${enemyParty.name} (${enemyParty.getPartySize()} troops).`;
 
-        this.updateTownMarketUI(town);
-        this.updateRecruitmentUI(town);
-        this.updateTownPoliticsUI(town);
+        const btnAuto = modal.querySelector('#btn-auto-resolve');
+        const btnFps = modal.querySelector('#btn-fps-combat');
 
-        document.querySelectorAll('.town-tab-content').forEach(el => el.classList.add('hidden'));
-        document.getElementById('town-market-tab').classList.remove('hidden');
-        document.querySelectorAll('.town-tab-button').forEach(btn => {
-            btn.classList.remove('bg-zinc-700', 'text-white');
-            btn.classList.add('text-zinc-400');
+        // Clone nodes to remove old listeners
+        const newBtnAuto = btnAuto.cloneNode(true);
+        btnAuto.parentNode.replaceChild(newBtnAuto, btnAuto);
+        const newBtnFps = btnFps.cloneNode(true);
+        btnFps.parentNode.replaceChild(newBtnFps, btnFps);
+
+        newBtnAuto.addEventListener('click', () => {
+            modal.classList.add('hidden');
+            Combat.autoResolve(partyA, partyB, this.game);
         });
-        document.querySelector('.town-tab-button[data-tab="market"]').classList.add('bg-zinc-700', 'text-white');
-        this.elements.townModal.classList.remove('hidden');
+
+        newBtnFps.addEventListener('click', () => {
+            modal.classList.add('hidden');
+            this.game.start3DCombat(enemyParty);
+        });
+
+        modal.classList.remove('hidden');
     }
 
     updateTownMarketUI(town) {
         this.elements.townBuyListEl.innerHTML = '';
         this.elements.townSellListEl.innerHTML = '';
-        const townGoods = Object.keys(town.inventory).sort((a,b) => GOODS[a].name.localeCompare(GOODS[b].name));
+        const townGoods = Object.keys(town.inventory).sort((a, b) => GOODS[a].name.localeCompare(GOODS[b].name));
         if (townGoods.length === 0 || townGoods.every(key => town.inventory[key] <= 0)) {
             this.elements.townBuyListEl.innerHTML = '<p class="text-zinc-500">Nothing for sale.</p>';
         }
@@ -367,7 +461,7 @@ class UIManager {
             this.elements.townBuyListEl.appendChild(itemEl);
         }
 
-        const playerGoods = Object.keys(this.game.player.inventory).sort((a,b) => GOODS[a].name.localeCompare(GOODS[b].name));
+        const playerGoods = Object.keys(this.game.player.inventory).sort((a, b) => GOODS[a].name.localeCompare(GOODS[b].name));
         if (playerGoods.length === 0 || playerGoods.every(key => this.game.player.inventory[key] <= 0)) {
             this.elements.townSellListEl.innerHTML = '<p class="text-zinc-500">You have no goods.</p>';
         }
@@ -395,9 +489,9 @@ class UIManager {
 
     updateRecruitmentUI(town) {
         this.elements.townRecruitmentOptionsEl.innerHTML = '';
-        for(const troopType in town.barracks) {
+        for (const troopType in town.barracks) {
             const count = town.barracks[troopType];
-            if(count > 0) {
+            if (count > 0) {
                 const troopData = TROOP_TYPES[troopType];
                 const itemEl = document.createElement('div');
                 itemEl.className = 'flex items-center justify-between bg-zinc-900 p-2 rounded';
@@ -410,9 +504,9 @@ class UIManager {
                     </div>`;
                 itemEl.querySelector('button').addEventListener('click', () => {
                     const quantity = parseInt(itemEl.querySelector('input').value, 10);
-                    if(quantity > 0 && quantity <= count) {
+                    if (quantity > 0 && quantity <= count) {
                         const cost = quantity * troopData.cost;
-                        if(this.game.player.gold >= cost) {
+                        if (this.game.player.gold >= cost) {
                             this.game.player.gold -= cost;
                             town.treasury += cost;
                             town.barracks[troopType] -= quantity;
@@ -430,7 +524,7 @@ class UIManager {
         }
     }
 
-     updateTownPoliticsUI(town) {
+    updateTownPoliticsUI(town) {
         const relationsEl = this.elements.townRelationsListEl;
         const gossipEl = this.elements.townGossipListEl;
         relationsEl.innerHTML = '';
@@ -454,12 +548,12 @@ class UIManager {
         if (hasWar) {
             gossipEl.innerHTML += `<p>"Times are tense. The call for soldiers might come any day now."</p>`;
         } else {
-             gossipEl.innerHTML += `<p>"It's been quiet lately. Good for business, I say."</p>`;
+            gossipEl.innerHTML += `<p>"It's been quiet lately. Good for business, I say."</p>`;
         }
-        if(town.hadShortageRecently) {
+        if (town.hadShortageRecently) {
             gossipEl.innerHTML += `<p>"The caravans haven't been coming through. I hope we get a shipment of goods soon."</p>`;
         } else {
-             gossipEl.innerHTML += `<p>"The markets are well-stocked. Trade is flowing."</p>`;
+            gossipEl.innerHTML += `<p>"The markets are well-stocked. Trade is flowing."</p>`;
         }
     }
 
@@ -483,9 +577,9 @@ class UIManager {
             const itemEl = this._createMarketItem(GOODS[village.production].name, stock, price, "Buy", "blue", true);
             itemEl.querySelector('button').addEventListener('click', () => {
                 const quantity = parseInt(itemEl.querySelector('input').value, 10);
-                if(quantity > 0 && quantity <= stock) {
+                if (quantity > 0 && quantity <= stock) {
                     const cost = quantity * price;
-                    if(this.game.player.gold >= cost) {
+                    if (this.game.player.gold >= cost) {
                         this.game.player.gold -= cost;
                         village.gold += cost;
                         village.inventory[village.production] -= quantity;
@@ -503,10 +597,10 @@ class UIManager {
     }
 
     _createMarketItem(name, stock, price, action, color, isVillage = false) {
-         const itemEl = document.createElement('div');
-         const className = isVillage ? 'flex items-center justify-between bg-zinc-900 p-2 rounded' : 'flex items-center justify-between text-sm';
-         itemEl.className = className;
-         itemEl.innerHTML = `
+        const itemEl = document.createElement('div');
+        const className = isVillage ? 'flex items-center justify-between bg-zinc-900 p-2 rounded' : 'flex items-center justify-between text-sm';
+        itemEl.className = className;
+        itemEl.innerHTML = `
             <span>${name} (${stock})</span>
             <div class="flex items-center gap-1">
                 <span class="text-yellow-500 w-16 text-right">${price} G</span>

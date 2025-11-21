@@ -96,7 +96,7 @@ class DiplomacyManager {
             if (state === 'war') {
                 game.uiManager.addMessage(`${factionName1} has declared war on ${factionName2}!`, 'text-red-500 font-bold');
             } else if (state === 'neutral') {
-                 game.uiManager.addMessage(`${factionName1} and ${factionName2} have made peace.`, 'text-green-400');
+                game.uiManager.addMessage(`${factionName1} and ${factionName2} have made peace.`, 'text-green-400');
             }
         }
     }
@@ -124,8 +124,31 @@ class DiplomacyManager {
                 }
             }
         }
+
+        if (game.player.allegianceType === 'mercenary' && game.player.mercenaryFactionId) {
+            const payment = 50 + (game.player.renown * 2);
+            game.player.gold += payment;
+            game.uiManager.addMessage(`Received ${payment} G mercenary payment from ${game.factions[game.player.mercenaryFactionId].name}.`, 'text-yellow-300');
+        }
+        if (game.player.allegianceType === 'vassal') {
+            game.player.influence += 1;
+        }
+
         if (game.currentDay % 5 === 0) {
             this.factionIds.forEach(fid => this.factionStrategicUpdate(fid, game));
+        }
+    }
+
+    setPlayerAllegiance(factionId, type, game) {
+        if (type === 'mercenary') {
+            game.player.allegianceType = 'mercenary';
+            game.player.mercenaryFactionId = factionId;
+            game.uiManager.addMessage(`You have signed a mercenary contract with ${game.factions[factionId].name}.`, 'text-green-400');
+        } else if (type === 'vassal') {
+            game.player.allegianceType = 'vassal';
+            game.player.factionId = factionId;
+            game.player.color = game.factions[factionId].color;
+            game.uiManager.addMessage(`You have sworn fealty to ${game.factions[factionId].name}!`, 'text-purple-400');
         }
     }
 
@@ -177,7 +200,7 @@ class DiplomacyManager {
         if (!myFaction) return;
         const myStrength = this.calculateFactionStrength(factionId, game);
 
-        for(const otherFactionId of this.factionIds) {
+        for (const otherFactionId of this.factionIds) {
             if (factionId === otherFactionId) continue;
 
             const otherStrength = this.calculateFactionStrength(otherFactionId, game);
@@ -210,57 +233,57 @@ class DiplomacyManager {
                 }
             }
         }
-         this.assignLordDirectives(factionId, game);
+        this.assignLordDirectives(factionId, game);
     }
 
     assignLordDirectives(factionId, game) {
-         const lords = game.parties.filter(p => p.factionId === factionId && p.partyType === 'lord');
-         const myTowns = game.locations.filter(l => l.factionId === factionId && l.type === 'town');
-         const enemyTowns = game.locations.filter(l => l.type === 'town' && this.areFactionsAtWar(factionId, l.factionId));
-         const enemyVillages = game.locations.filter(l => l.type === 'village' && this.areFactionsAtWar(factionId, l.factionId));
-         const enemyCaravans = game.parties.filter(p => p.partyType === 'caravan' && this.areFactionsAtWar(factionId, p.factionId));
+        const lords = game.parties.filter(p => p.factionId === factionId && p.partyType === 'lord');
+        const myTowns = game.locations.filter(l => l.factionId === factionId && l.type === 'town');
+        const enemyTowns = game.locations.filter(l => l.type === 'town' && this.areFactionsAtWar(factionId, l.factionId));
+        const enemyVillages = game.locations.filter(l => l.type === 'village' && this.areFactionsAtWar(factionId, l.factionId));
+        const enemyCaravans = game.parties.filter(p => p.partyType === 'caravan' && this.areFactionsAtWar(factionId, p.factionId));
 
-         lords.forEach(lord => {
-             if (lord.aiDirective.targetId && !game.locations.find(l => l.id === lord.aiDirective.targetId)) {
-                 lord.aiDirective = { type: 'patrol' };
-             }
+        lords.forEach(lord => {
+            if (lord.aiDirective.targetId && !game.locations.find(l => l.id === lord.aiDirective.targetId)) {
+                lord.aiDirective = { type: 'patrol' };
+            }
 
-             const myStrength = lord.getPartyPower();
+            const myStrength = lord.getPartyPower();
 
-             const factionStrength = this.calculateFactionStrength(factionId, game);
-             const totalEnemyStrength = this.factionIds
-                 .filter(fid => this.areFactionsAtWar(factionId, fid))
-                 .reduce((sum, fid) => sum + this.calculateFactionStrength(fid, game), 0);
+            const factionStrength = this.calculateFactionStrength(factionId, game);
+            const totalEnemyStrength = this.factionIds
+                .filter(fid => this.areFactionsAtWar(factionId, fid))
+                .reduce((sum, fid) => sum + this.calculateFactionStrength(fid, game), 0);
 
-             if (factionStrength < totalEnemyStrength * 0.8 && myTowns.length > 0) {
-                 if (Math.random() < 0.5) {
-                     const target = myTowns[Math.floor(Math.random() * myTowns.length)];
-                     lord.aiDirective = { type: 'defend', targetId: target.id };
-                     return;
-                 }
-             }
+            if (factionStrength < totalEnemyStrength * 0.8 && myTowns.length > 0) {
+                if (Math.random() < 0.5) {
+                    const target = myTowns[Math.floor(Math.random() * myTowns.length)];
+                    lord.aiDirective = { type: 'defend', targetId: target.id };
+                    return;
+                }
+            }
 
-             if (enemyTowns.length > 0 && Math.random() < 0.3) {
-                 const target = enemyTowns[Math.floor(Math.random() * enemyTowns.length)];
-                 const garrisonPower = Party.getPartyPower(target.garrison);
-                 if (myStrength > garrisonPower * 1.5) {
-                      lord.aiDirective = { type: 'siege', targetId: target.id };
-                      return;
-                 }
-             }
+            if (enemyTowns.length > 0 && Math.random() < 0.3) {
+                const target = enemyTowns[Math.floor(Math.random() * enemyTowns.length)];
+                const garrisonPower = Party.getPartyPower(target.garrison);
+                if (myStrength > garrisonPower * 1.5) {
+                    lord.aiDirective = { type: 'siege', targetId: target.id };
+                    return;
+                }
+            }
 
-             if (enemyCaravans.length > 0 && Math.random() < 0.4) {
-                 lord.aiDirective = { type: 'hunt', targetType: 'caravan' };
-                 return;
-             }
+            if (enemyCaravans.length > 0 && Math.random() < 0.4) {
+                lord.aiDirective = { type: 'hunt', targetType: 'caravan' };
+                return;
+            }
 
-             if (enemyVillages.length > 0 && Math.random() < 0.2) {
-                 const target = enemyVillages[Math.floor(Math.random() * enemyVillages.length)];
-                 lord.aiDirective = { type: 'raid', targetId: target.id };
-                 return;
-             }
+            if (enemyVillages.length > 0 && Math.random() < 0.2) {
+                const target = enemyVillages[Math.floor(Math.random() * enemyVillages.length)];
+                lord.aiDirective = { type: 'raid', targetId: target.id };
+                return;
+            }
 
-             lord.aiDirective = { type: 'patrol' };
-         });
+            lord.aiDirective = { type: 'patrol' };
+        });
     }
 }

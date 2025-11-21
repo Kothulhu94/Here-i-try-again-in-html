@@ -38,6 +38,15 @@ class Town extends Location {
         this.siegeProgress = 0;
         this.siegeAttackerId = null;
         this.hadShortageRecently = false;
+        this.loyalty = 50;
+        this.security = 50;
+        this.projects = {
+            'training_fields': { level: 0, progress: 0, target: 100, name: 'Training Fields', desc: 'Daily XP for garrison.' },
+            'lime_kilns': { level: 0, progress: 0, target: 100, name: 'Lime Kilns', desc: 'Stronger walls.' },
+            'market_stalls': { level: 0, progress: 0, target: 100, name: 'Market Stalls', desc: 'More tax income.' }
+        };
+        this.activeProject = null;
+        this.ownerId = null; // null means faction leader owns it
     }
 
     dailyUpdate(game) {
@@ -46,13 +55,61 @@ class Town extends Location {
             this.siegeProgress++;
             if (this.siegeProgress >= 3) {
                 const attacker = game.parties.find(p => p.id === this.siegeAttackerId);
-                if(attacker) {
-                     Combat.resolveSiege(attacker, this, game);
+                if (attacker) {
+                    Combat.resolveSiege(attacker, this, game);
                 } else {
-                     this.isUnderSiege = false; this.siegeProgress = 0; this.siegeAttackerId = null;
+                    this.isUnderSiege = false; this.siegeProgress = 0; this.siegeAttackerId = null;
                 }
             }
             return;
+        }
+
+        // Project Progress
+        if (this.activeProject && this.projects[this.activeProject]) {
+            this.projects[this.activeProject].progress += 10; // Base construction speed
+            if (this.projects[this.activeProject].progress >= this.projects[this.activeProject].target) {
+                this.projects[this.activeProject].level++;
+                this.projects[this.activeProject].progress = 0;
+                this.projects[this.activeProject].target *= 1.5;
+                game.uiManager.addMessage(`${this.projects[this.activeProject].name} upgraded in ${this.name}!`, 'text-green-400');
+                this.activeProject = null;
+            }
+        }
+
+        // Project Effects
+        if (this.projects['training_fields'].level > 0) {
+            // Simple XP mechanic: upgrade low tier troops occasionally
+            if (Math.random() < 0.1 * this.projects['training_fields'].level) {
+                const upgradeable = this.garrison.find(t => t.type === 'looter');
+                if (upgradeable) {
+                    upgradeable.count--;
+                    if (upgradeable.count <= 0) this.garrison = this.garrison.filter(t => t !== upgradeable);
+                    const existingSpear = this.garrison.find(t => t.type === 'spearman');
+                    if (existingSpear) existingSpear.count++; else this.garrison.push({ type: 'spearman', count: 1 });
+                }
+            }
+        }
+        if (this.projects['market_stalls'].level > 0) {
+            this.treasury += this.projects['market_stalls'].level * 10;
+        }
+
+        // Loyalty & Security
+        if (this.hadShortageRecently) this.loyalty -= 1;
+        else this.loyalty = Math.min(100, this.loyalty + 0.5);
+
+        if (Party.getPartySize(this.garrison) < 20) this.security -= 1;
+        else this.security = Math.min(100, this.security + 0.5);
+
+        if (this.loyalty < 10) {
+            if (Math.random() < 0.1) {
+                game.uiManager.addMessage(`Rebellion in ${this.name}!`, 'text-red-600 font-bold');
+                this.loyalty = 50;
+                const rebels = game.createAIParty('bandit', `${this.name} Rebels`, this.x, this.y, 'bandit');
+                rebels.party = [{ type: 'spearman', count: 20 }, { type: 'looter', count: 30 }];
+                game.parties.push(rebels);
+                this.garrison = []; // Garrison defects or is killed
+                this.changeOwner('bandit', game);
+            }
         }
 
         if (Party.getPartySize(this.garrison) < this.level * 50 && this.treasury > 500) {
@@ -104,7 +161,7 @@ class Town extends Location {
         this.factionId = newFactionId;
         this.villageIds.forEach(vid => {
             const village = game.locations.find(l => l.id === vid);
-            if(village) village.factionId = newFactionId;
+            if (village) village.factionId = newFactionId;
         });
     }
 

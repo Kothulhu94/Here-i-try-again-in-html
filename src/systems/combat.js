@@ -1,5 +1,13 @@
 class Combat {
-    static resolve(partyA, partyB, game) {
+    static initiate(partyA, partyB, game) {
+        if (partyA.partyType === 'player' || partyB.partyType === 'player') {
+            game.uiManager.showCombatOptions(partyA, partyB);
+        } else {
+            this.autoResolve(partyA, partyB, game);
+        }
+    }
+
+    static autoResolve(partyA, partyB, game) {
         const isPlayerInvolved = partyA === game.player || partyB === game.player;
         const playerParty = isPlayerInvolved ? (partyA === game.player ? partyA : partyB) : null;
         const enemyParty = isPlayerInvolved ? (partyA === game.player ? partyB : partyA) : partyB;
@@ -86,7 +94,9 @@ class Combat {
             if (playerIsWinner) {
                 const goldGained = (enemyParty.gold || 0) + 10 + Math.floor(Math.random() * 50);
                 game.player.gold += goldGained;
-                game.uiManager.addMessage(`You looted ${goldGained} G.`, 'text-yellow-400');
+                const renownGain = Math.max(1, Math.floor(initialSizeB / 5));
+                game.player.renown += renownGain;
+                game.uiManager.addMessage(`You looted ${goldGained} G and gained ${renownGain} Renown.`, 'text-yellow-400');
             } else {
                 const goldLost = Math.min(game.player.gold, 50 + Math.floor(Math.random() * 50));
                 game.player.gold -= goldLost;
@@ -95,7 +105,7 @@ class Combat {
                     game.uiManager.addMessage('Your party is defeated. You find 5 Spearmen from a nearby village.', 'text-red-500');
                     game.player.party = [{ type: 'spearman', count: 5 }];
                     let spawnLoc = game.locations.find(l => l.type === 'town');
-                    if (!spawnLoc) spawnLoc = { x: game.worldMap.mapWidth / 2, y: game.worldMap.mapHeight / 2};
+                    if (!spawnLoc) spawnLoc = { x: game.worldMap.mapWidth / 2, y: game.worldMap.mapHeight / 2 };
                     game.player.x = spawnLoc.x; game.player.y = spawnLoc.y;
                     game.player.targetX = game.player.x; game.player.targetY = game.player.y;
                     game.cameraX = game.player.x; game.cameraY = game.player.y;
@@ -124,7 +134,7 @@ class Combat {
         }
     }
 
-     static resolveSiege(attacker, town, game) {
+    static resolveSiege(attacker, town, game) {
         const garrison = town.garrison;
         let currentAttackerParty = JSON.parse(JSON.stringify(attacker.party));
         let currentGarrison = JSON.parse(JSON.stringify(garrison));
@@ -156,7 +166,7 @@ class Combat {
             if (finalAttackerSize <= 0) {
                 game.parties = game.parties.filter(p => p !== attacker);
             } else {
-                 attacker.party = currentAttackerParty;
+                attacker.party = currentAttackerParty;
             }
         }
         town.isUnderSiege = false;

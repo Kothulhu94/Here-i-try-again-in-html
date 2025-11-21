@@ -41,6 +41,8 @@ class Game {
         this.isTapPending = false;
         this.initialPinchDistance = 0;
 
+        this.raycaster = null;
+
         this.init();
     }
 
@@ -74,10 +76,10 @@ class Game {
 
         let playerStartX = MAP_DIMENSION / 2, playerStartY = MAP_DIMENSION / 2;
         if (this.locations.length > 0) {
-             playerStartX = this.locations[0].x + 3000; playerStartY = this.locations[0].y + 3000;
+            playerStartX = this.locations[0].x + 3000; playerStartY = this.locations[0].y + 3000;
         }
-        while(this.worldMap.isImpassable(this.worldMap.getTerrainAt(playerStartX, playerStartY))) {
-             playerStartX += (Math.random() - 0.5) * 1000; playerStartY += (Math.random() - 0.5) * 1000;
+        while (this.worldMap.isImpassable(this.worldMap.getTerrainAt(playerStartX, playerStartY))) {
+            playerStartX += (Math.random() - 0.5) * 1000; playerStartY += (Math.random() - 0.5) * 1000;
         }
 
         this.player = new Party('Player', playerStartX, playerStartY, 'player', 'player', BASE_PLAYER_SPEED, [{ type: 'spearman', count: 10 }], 1000, 8);
@@ -123,6 +125,8 @@ class Game {
 
         if (this.gameState === 'map' && this.gameSpeedMultiplier > 0) {
             this.update(deltaTime);
+        } else if (this.gameState === 'fps_combat' && this.raycaster) {
+            this.raycaster.update(deltaTime);
         }
 
         this.render();
@@ -140,10 +144,11 @@ class Game {
         }
         this.uiManager.updateTimeUI(this.currentDay, this.gameTime);
 
+        this.player.updateSpeed();
         this.player.move(gameHoursPassed);
         if (this.player.path && this.player.path.length === 0 && Pathfinder.getDistance(this.player.x, this.player.y, this.player.targetX, this.player.targetY) < 10) {
-             this.gameSpeedMultiplier = 0;
-             this.uiManager.updateTimeControlButton();
+            this.gameSpeedMultiplier = 0;
+            this.uiManager.updateTimeControlButton();
         }
 
         this.parties.forEach(party => {
@@ -160,6 +165,11 @@ class Game {
         if (!this.ctx) return;
         this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
         if (this.gameState === 'title') return;
+
+        if (this.gameState === 'fps_combat' && this.raycaster) {
+            this.raycaster.render(this.ctx);
+            return;
+        }
 
         this.worldMap.render(this.ctx, this);
 
@@ -254,8 +264,8 @@ class Game {
                         party.gold = (party.gold || 0) + earnedGold;
                         for (const neededGood of (party.shoppingList || [])) {
                             const price = destination.calculatePrice(neededGood, this);
-                            if(price > 0 && party.gold > price) {
-                                 const toBuy = Math.min(destination.inventory[neededGood] || 0, Math.floor(party.gold / price), 20);
+                            if (price > 0 && party.gold > price) {
+                                const toBuy = Math.min(destination.inventory[neededGood] || 0, Math.floor(party.gold / price), 20);
                                 if (toBuy > 0) {
                                     const cost = toBuy * price;
                                     party.gold -= cost; destination.inventory[neededGood] -= toBuy; destination.treasury += cost;
@@ -266,7 +276,7 @@ class Game {
                     }
                     party.inventory = {};
 
-                    if(party.factionId !== destination.factionId) {
+                    if (party.factionId !== destination.factionId) {
                         this.diplomacyManager.modifyRelation(party.factionId, destination.factionId, 0.5, this);
                     }
 
@@ -308,7 +318,7 @@ class Game {
 
         const majorFactions = this.diplomacyManager.factionIds || [];
         if (majorFactions.includes(faction1) && majorFactions.includes(faction2)) {
-             return this.diplomacyManager.areFactionsAtWar(faction1, faction2);
+            return this.diplomacyManager.areFactionsAtWar(faction1, faction2);
         }
 
         return false;
@@ -425,7 +435,7 @@ class Game {
             let denPos = null;
             for (let attempt = 0; attempt < 100; attempt++) {
                 const candidatePos = findValidPoint(EDGE_MARGIN, this.worldMap.mapWidth - EDGE_MARGIN, EDGE_MARGIN, this.worldMap.mapHeight - EDGE_MARGIN, 100);
-                if(candidatePos && newLocations.filter(l => l.type === 'town').every(town => Pathfinder.getDistance(candidatePos.x, candidatePos.y, town.x, town.y) >= MIN_DIST_FROM_TOWN)) {
+                if (candidatePos && newLocations.filter(l => l.type === 'town').every(town => Pathfinder.getDistance(candidatePos.x, candidatePos.y, town.x, town.y) >= MIN_DIST_FROM_TOWN)) {
                     denPos = candidatePos; break;
                 }
             }
@@ -437,19 +447,69 @@ class Game {
         this.locations = newLocations;
     }
 
+    start3DCombat(enemyParty) {
+        this.currentEnemyParty = enemyParty;
+        this.gameState = 'fps_combat';
+        this.raycaster = new Raycaster(this, enemyParty);
+        this.uiManager.elements.uiOverlay.classList.add('hidden');
+        setTimeout(() => {
+            this.canvas.requestPointerLock();
+        }, 100);
+    }
+
+    finish3DCombat(result) {
+        if (this.raycaster) {
+            this.raycaster.cleanup();
+            this.raycaster = null;
+        }
+        this.gameState = 'map';
+        this.uiManager.elements.uiOverlay.classList.remove('hidden');
+        document.exitPointerLock();
+
+        if (result.result === 'win') {
+            this.uiManager.addMessage("Victory in 3D Combat!", "text-green-400");
+            const hpRatio = result.hpRemaining / 100;
+            const losses = Math.floor(this.player.getPartySize() * (1 - hpRatio) * 0.5);
+
+            if (losses > 0) {
+                this.player.party = Party.removeTroops(this.player.party, losses);
+                this.uiManager.addMessage(`You lost ${losses} troops in the battle.`, "text-red-400");
+            }
+
+            const renownGain = 10;
+            this.player.renown += renownGain;
+            this.player.gold += 50;
+            this.uiManager.addMessage(`Gained ${renownGain} Renown and 50 Gold.`, "text-yellow-400");
+
+            if (this.currentEnemyParty) {
+                this.parties = this.parties.filter(p => p !== this.currentEnemyParty);
+                this.currentEnemyParty = null;
+            }
+        } else {
+            this.uiManager.addMessage("Defeated in 3D Combat...", "text-red-600");
+            const losses = Math.floor(this.player.getPartySize() * 0.5);
+            this.player.party = Party.removeTroops(this.player.party, losses);
+            this.uiManager.addMessage(`You lost ${losses} troops and retreated.`, "text-red-400");
+            this.player.x += (Math.random() - 0.5) * 2000;
+            this.player.y += (Math.random() - 0.5) * 2000;
+        }
+
+        this.uiManager.updatePlayerStats(this.player, this.currentDay);
+    }
+
     createAIParty(partyType, name, x, y, factionId) {
         let party, speed, radius = 6, gold = 0;
 
-        switch(partyType) {
+        switch (partyType) {
             case 'bandit': party = [{ type: 'looter', count: 10 + Math.floor(Math.random() * 10) }]; speed = 15000; break;
             case 'caravan': party = [{ type: 'spearman', count: 5 }]; speed = 13000; radius = 4; break;
             case 'beast': party = []; speed = 17000; radius = 7; break;
-            case 'lord': party = [ { type: 'spearman', count: 20 }, { type: 'swordsman', count: 5 } ]; speed = 16000; gold = 5000; break;
+            case 'lord': party = [{ type: 'spearman', count: 20 }, { type: 'swordsman', count: 5 }]; speed = 16000; gold = 5000; break;
             default: party = []; speed = 15000;
         }
 
         let locX = x, locY = y, attempts = 0;
-        while(this.worldMap.isImpassable(this.worldMap.getTerrainAt(locX, locY)) && attempts < 50) {
+        while (this.worldMap.isImpassable(this.worldMap.getTerrainAt(locX, locY)) && attempts < 50) {
             locX = x + (Math.random() - 0.5) * 4000; locY = y + (Math.random() - 0.5) * 4000; attempts++;
         }
         const newParty = new Party(name, locX, locY, partyType, factionId, speed, party, gold, radius);
@@ -489,7 +549,7 @@ class Game {
     }
 
     loadGame() {
-         const savedDataString = localStorage.getItem('bannerlord2d_save');
+        const savedDataString = localStorage.getItem('bannerlord2d_save');
         if (!savedDataString) {
             this.uiManager.addMessage("No save game found.", 'text-red-400');
             return false;
@@ -577,7 +637,7 @@ class Game {
 
     onPointerMove(e) {
         if (!this.isDragging) return;
-        if(e.touches && e.touches.length === 2) {
+        if (e.touches && e.touches.length === 2) {
             if (this.initialPinchDistance <= 0) return;
             const pos0 = getTouchPos(e.touches[0], this.canvas), pos1 = getTouchPos(e.touches[1], this.canvas);
             const newPinchDistance = Pathfinder.getDistance(pos0.x, pos0.y, pos1.x, pos1.y);

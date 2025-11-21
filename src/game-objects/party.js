@@ -14,6 +14,20 @@ class Party {
         this.path = [];
         this.aiState = 'patrolling';
         this.aiDirective = { type: 'patrol' };
+        this.renown = 0;
+        this.influence = 0;
+        this.armyLeaderId = null;
+        this.allegianceType = 'none';
+        this.mercenaryFactionId = null;
+        this.updateSpeed();
+    }
+
+    getClanTier() {
+        return Math.floor(this.renown / 50);
+    }
+
+    getMaxPartySize() {
+        return 20 + (this.getClanTier() * 15);
     }
 
     getPartySize() {
@@ -33,7 +47,7 @@ class Party {
     }
 
     getPartyDefense() {
-         return Party.getPartyDefense(this.party);
+        return Party.getPartyDefense(this.party);
     }
     static getPartyDefense(party) {
         if (!party) return 0;
@@ -55,6 +69,7 @@ class Party {
         } else {
             this.party.push({ type, count });
         }
+        this.updateSpeed();
     }
 
     static removeTroops(party, losses) {
@@ -75,9 +90,9 @@ class Party {
     }
 
     updateSpeed() {
-         if (this.partyType !== 'player') return;
-         const speedMod = Math.max(0.5, 1 - (this.getPartySize() / 200));
-         this.speed = BASE_PLAYER_SPEED * speedMod;
+        if (this.partyType !== 'player') return;
+        const speedMod = Math.max(0.5, 1 - (this.getPartySize() / 200));
+        this.speed = BASE_PLAYER_SPEED * speedMod;
     }
 
     move(hoursPassed) {
@@ -102,6 +117,22 @@ class Party {
     updateAI(game) {
         if (this.partyType === 'player' || this.partyType === 'caravan') return;
 
+        if (this.armyLeaderId) {
+            const leader = game.player.id === this.armyLeaderId ? game.player : game.parties.find(p => p.id === this.armyLeaderId);
+            if (leader) {
+                this.aiState = 'following_army';
+                if (Pathfinder.getDistance(this.x, this.y, leader.x, leader.y) > 200) {
+                    this.targetX = leader.x; this.targetY = leader.y;
+                    this.path = Pathfinder.findPathAStar(this.x, this.y, this.targetX, this.targetY, game.worldMap);
+                } else {
+                    this.path = [];
+                }
+                return;
+            } else {
+                this.armyLeaderId = null; // Leader lost/destroyed
+            }
+        }
+
         const SIGHT_RANGE = 4000;
         const nearbyHostiles = [game.player, ...game.parties].filter(p => p !== this && game.isHostile(this, p) && Pathfinder.getDistance(this.x, this.y, p.x, p.y) < SIGHT_RANGE);
 
@@ -125,7 +156,7 @@ class Party {
                 this.aiState = `executing_${this.aiDirective.type}`;
 
                 let foundNewTask = false;
-                switch(this.aiDirective.type) {
+                switch (this.aiDirective.type) {
                     case 'siege':
                     case 'raid':
                     case 'defend':
@@ -165,7 +196,7 @@ class Party {
                         }
                         break;
                 }
-                if(foundNewTask) return;
+                if (foundNewTask) return;
             } else {
                 if (this.aiDirective.type !== 'patrol') return;
             }
@@ -180,7 +211,7 @@ class Party {
                 targetX = this.x + Math.cos(angle) * distance;
                 targetY = this.y + Math.sin(angle) * distance;
                 attempts++;
-            } while(game.worldMap.isImpassable(game.worldMap.getTerrainAt(targetX, targetY)) && attempts < 10);
+            } while (game.worldMap.isImpassable(game.worldMap.getTerrainAt(targetX, targetY)) && attempts < 10);
             this.targetX = targetX; this.targetY = targetY;
             this.path = Pathfinder.findPathAStar(this.x, this.y, this.targetX, this.targetY, game.worldMap);
         }
@@ -193,10 +224,10 @@ class Party {
         ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, Math.PI * 2);
         ctx.fillStyle = this.color;
         ctx.fill();
-         if (this === game.player) {
+        if (this === game.player) {
             ctx.strokeStyle = 'white';
             ctx.lineWidth = 1.5;
             ctx.stroke();
-         }
+        }
     }
 }
