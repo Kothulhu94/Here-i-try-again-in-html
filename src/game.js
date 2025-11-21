@@ -131,11 +131,16 @@ class Game {
         this.player = new Party('Player', playerStartX, playerStartY, 'player', 'player', BASE_PLAYER_SPEED, [{ type: 'the_sleeper', count: 1 }], 1000, 8);
         this.player.id = ++this.partyIdCounter;
 
-        // Spawn immediate ambush party nearby
-        const ambushAngle = Math.random() * 2 * Math.PI;
-        const ambushDistance = 300 + Math.random() * 200; // 300-500 units away
-        const ambushX = playerStartX + Math.cos(ambushAngle) * ambushDistance;
-        const ambushY = playerStartY + Math.sin(ambushAngle) * ambushDistance;
+        // Spawn immediate ambush party nearby on passable terrain
+        let ambushX, ambushY, attempts = 0;
+        do {
+            const ambushAngle = Math.random() * 2 * Math.PI;
+            const ambushDistance = 300 + Math.random() * 200; // 300-500 units away
+            ambushX = playerStartX + Math.cos(ambushAngle) * ambushDistance;
+            ambushY = playerStartY + Math.sin(ambushAngle) * ambushDistance;
+            attempts++;
+        } while (this.worldMap.isImpassable(this.worldMap.getTerrainAt(ambushX, ambushY)) && attempts < 50);
+
         const ambushParty = this.createAIParty('bandit', 'Feral Scavengers', ambushX, ambushY, 'bandit');
         ambushParty.aiState = 'chasing';
         ambushParty.targetX = playerStartX;
@@ -143,6 +148,7 @@ class Game {
         // Don't pathfind during init - let AI update handle it to avoid freeze
         ambushParty.path = [];
         this.parties.push(ambushParty);
+        console.log(`🎯 Ambush party spawned at distance: ${Math.sqrt((ambushX - playerStartX) ** 2 + (ambushY - playerStartY) ** 2).toFixed(0)}`);
 
         // Add other bandit parties further away
         this.parties.push(this.createAIParty('bandit', 'Looter Party', 25000, 25000, 'bandit'));
