@@ -596,6 +596,73 @@ class UIManager {
         this.elements.villageModal.classList.remove('hidden');
     }
 
+openStats() {
+    this.elements.statsModal.classList.remove('hidden');
+}
+
+closeStats() {
+    this.elements.statsModal.classList.add('hidden');
+}
+
+openLog() {
+    this.elements.logModal.classList.remove('hidden');
+}
+
+closeLog() {
+    this.elements.logModal.classList.add('hidden');
+}
+
+openKingdoms() {
+    this.updateKingdomsUI();
+    this.elements.kingdomsModal.classList.remove('hidden');
+}
+
+closeKingdoms() {
+    this.elements.kingdomsModal.classList.add('hidden');
+}
+
+leaveTown() {
+    this.elements.townModal.classList.add('hidden');
+    this.game.gameState = 'map';
+    this.game.currentLocation = null;
+    this.game.justLeftLocation = true;
+    setTimeout(() => this.game.justLeftLocation = false, 1000);
+}
+
+leaveVillage() {
+    this.elements.villageModal.classList.add('hidden');
+    this.game.gameState = 'map';
+    this.game.currentLocation = null;
+    this.game.justLeftLocation = true;
+    setTimeout(() => this.game.justLeftLocation = false, 1000);
+}
+
+showCombatReport(data) {
+    this.elements.combatTitle.textContent = data.title;
+    this.elements.combatResult.textContent = data.result;
+    this.elements.combatPlayerParty.textContent = data.playerPartyDesc;
+    this.elements.combatEnemyParty.textContent = data.enemyPartyDesc;
+    this.elements.combatLog.innerHTML = data.log;
+    this.elements.combatPlayerLosses.textContent = data.playerLosses;
+    this.elements.combatEnemyLosses.textContent = data.enemyLosses;
+
+    if (data.result.includes('Victory')) {
+        this.elements.combatResult.className = 'text-2xl font-bold text-center mb-4 text-green-400';
+    } else if (data.result.includes('Defeat')) {
+        this.elements.combatResult.className = 'text-2xl font-bold text-center mb-4 text-red-400';
+    } else {
+        this.elements.combatResult.className = 'text-2xl font-bold text-center mb-4 text-yellow-400';
+    }
+
+    this.elements.combatModal.classList.remove('hidden');
+}
+
+closeCombatReport() {
+    this.elements.combatModal.classList.add('hidden');
+    this.game.gameState = 'map';
+}
+
+
     _createMarketItem(name, stock, price, action, color, isVillage = false) {
         const itemEl = document.createElement('div');
         const className = isVillage ? 'flex items-center justify-between bg-zinc-900 p-2 rounded' : 'flex items-center justify-between text-sm';
