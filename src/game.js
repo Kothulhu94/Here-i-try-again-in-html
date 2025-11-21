@@ -559,16 +559,18 @@ class Game {
     }
 
     finish3DCombat(result) {
+        console.log('🎮 finish3DCombat called, result:', result);
         if (this.raycaster) {
+            console.log('🧹 Cleaning up raycaster...');
             this.raycaster.cleanup();
             this.raycaster = null;
-
-            // Heartbeat logger to detect freezes
             this.lastHeartbeat = Date.now();
         }
+        console.log('🗺️ Switching to map state...');
         this.gameState = 'map';
         this.uiManager.elements.uiOverlay.classList.remove('hidden');
         document.exitPointerLock();
+        console.log('✅ State switched to map');
 
         if (result.result === 'win') {
             this.uiManager.addMessage("Victory in 3D Combat!", "text-green-400");
