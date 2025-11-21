@@ -43,6 +43,9 @@ class Game {
 
         this.raycaster = null;
 
+        // Heartbeat logger to detect freezes
+        this.lastHeartbeat = Date.now();
+
         // Global debugging - accessible from console
         window.gameDebug = {
             getState: () => ({
@@ -573,6 +576,9 @@ class Game {
         if (this.raycaster) {
             this.raycaster.cleanup();
             this.raycaster = null;
+
+        // Heartbeat logger to detect freezes
+        this.lastHeartbeat = Date.now();
         }
         this.gameState = 'map';
         this.uiManager.elements.uiOverlay.classList.remove('hidden');
