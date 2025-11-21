@@ -121,7 +121,7 @@ class Raycaster {
                 const dist = Math.hypot(dx, dy);
 
                 // Long range - can hit from far away
-                if (dist > 15) continue;
+                if (dist > 30) continue;
 
                 // Check if enemy is in front (using dot product)
                 const dot = (dx * this.player.dirX + dy * this.player.dirY) / dist;
