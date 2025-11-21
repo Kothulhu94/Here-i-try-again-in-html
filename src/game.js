@@ -140,7 +140,8 @@ class Game {
         ambushParty.aiState = 'chasing';
         ambushParty.targetX = playerStartX;
         ambushParty.targetY = playerStartY;
-        ambushParty.path = Pathfinder.findPathAStar(ambushParty.x, ambushParty.y, ambushParty.targetX, ambushParty.targetY, this.worldMap);
+        // Don't pathfind during init - let AI update handle it to avoid freeze
+        ambushParty.path = [];
         this.parties.push(ambushParty);
 
         // Add other bandit parties further away
@@ -577,8 +578,8 @@ class Game {
             this.raycaster.cleanup();
             this.raycaster = null;
 
-        // Heartbeat logger to detect freezes
-        this.lastHeartbeat = Date.now();
+            // Heartbeat logger to detect freezes
+            this.lastHeartbeat = Date.now();
         }
         this.gameState = 'map';
         this.uiManager.elements.uiOverlay.classList.remove('hidden');
