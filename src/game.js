@@ -74,17 +74,48 @@ class Game {
         this.generateLocations();
         this.diplomacyManager.initialize(this.factions);
 
+        // Spawn player far from nearest town for isolation
         let playerStartX = MAP_DIMENSION / 2, playerStartY = MAP_DIMENSION / 2;
         if (this.locations.length > 0) {
-            playerStartX = this.locations[0].x + 3000; playerStartY = this.locations[0].y + 3000;
+            const towns = this.locations.filter(l => l.type === 'town');
+            if (towns.length > 0) {
+                // Find a spot far from all towns
+                let maxMinDistance = 0;
+                for (let i = 0; i < 50; i++) {
+                    const testX = Math.random() * (MAP_DIMENSION * 0.8) + MAP_DIMENSION * 0.1;
+                    const testY = Math.random() * (MAP_DIMENSION * 0.8) + MAP_DIMENSION * 0.1;
+                    if (!this.worldMap.isImpassable(this.worldMap.getTerrainAt(testX, testY))) {
+                        const minDist = Math.min(...towns.map(t => Pathfinder.getDistance(testX, testY, t.x, t.y)));
+                        if (minDist > maxMinDistance) {
+                            maxMinDistance = minDist;
+                            playerStartX = testX;
+                            playerStartY = testY;
+                        }
+                    }
+                }
+            }
         }
         while (this.worldMap.isImpassable(this.worldMap.getTerrainAt(playerStartX, playerStartY))) {
             playerStartX += (Math.random() - 0.5) * 1000; playerStartY += (Math.random() - 0.5) * 1000;
         }
 
-        this.player = new Party('Player', playerStartX, playerStartY, 'player', 'player', BASE_PLAYER_SPEED, [{ type: 'spearman', count: 10 }], 1000, 8);
+        // Start with 1 'the_sleeper' unit (Cryo-Awakening scenario)
+        this.player = new Party('Player', playerStartX, playerStartY, 'player', 'player', BASE_PLAYER_SPEED, [{ type: 'the_sleeper', count: 1 }], 1000, 8);
         this.player.id = ++this.partyIdCounter;
 
+        // Spawn immediate ambush party nearby
+        const ambushAngle = Math.random() * 2 * Math.PI;
+        const ambushDistance = 300 + Math.random() * 200; // 300-500 units away
+        const ambushX = playerStartX + Math.cos(ambushAngle) * ambushDistance;
+        const ambushY = playerStartY + Math.sin(ambushAngle) * ambushDistance;
+        const ambushParty = this.createAIParty('bandit', 'Feral Scavengers', ambushX, ambushY, 'bandit');
+        ambushParty.aiState = 'chasing';
+        ambushParty.targetX = playerStartX;
+        ambushParty.targetY = playerStartY;
+        ambushParty.path = Pathfinder.findPathAStar(ambushParty.x, ambushParty.y, ambushParty.targetX, ambushParty.targetY, this.worldMap);
+        this.parties.push(ambushParty);
+
+        // Add other bandit parties further away
         this.parties.push(this.createAIParty('bandit', 'Looter Party', 25000, 25000, 'bandit'));
         this.parties.push(this.createAIParty('bandit', 'Looter Party', 75000, 75000, 'bandit'));
 
@@ -103,8 +134,11 @@ class Game {
         this.gameState = 'map';
         this.gameSpeedMultiplier = 0;
 
+        // Sci-Fi Cryo-Awakening narrative messages
         this.uiManager.elements.messageLog.innerHTML = '';
-        this.uiManager.addMessage("Welcome to the realm.", "text-green-400");
+        this.uiManager.addMessage("Cryo-stasis interrupted. Power levels critical.", "text-cyan-400");
+        this.uiManager.addMessage("Scanning environment... Lifeforms detected: Primitive/Hostile.", "text-yellow-400");
+        this.uiManager.addMessage("Kinetic Sidearm: Online. Survive.", "text-green-400");
         this.uiManager.addMessage("Right-click or Tap to move.", "text-zinc-400");
         this.uiManager.addMessage("Left-click & drag or Pan to move camera.", "text-zinc-400");
 
