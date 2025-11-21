@@ -111,28 +111,26 @@ class Raycaster {
     attack() {
         if (this.weaponState === 0) {
             this.weaponState = 1;
-            // Hitscan
-            // Sort enemies by distance
-            this.enemies.sort((a, b) => {
-                return ((this.player.x - a.x) ** 2 + (this.player.y - a.y) ** 2) - ((this.player.x - b.x) ** 2 + (this.player.y - b.y) ** 2);
-            });
+            // HITSCAN - Instant hit, no projectile
+            // Find enemy in crosshair (raytrace)
+            for (const enemy of this.enemies) {
+                if (enemy.hp <= 0) continue;
 
-            // Check if closest enemy is in front and in range
-            const closest = this.enemies[0]; // Closest is at end or start? Sort is ascending distance? Yes.
-            if (closest) {
-                const dist = Math.hypot(closest.x - this.player.x, closest.y - this.player.y);
-                if (dist < 2.5) {
-                    // Check angle
-                    const dx = closest.x - this.player.x;
-                    const dy = closest.y - this.player.y;
-                    // Dot product
-                    const dot = dx * this.player.dirX + dy * this.player.dirY;
-                    if (dot > 0.5) { // Roughly in front
-                        closest.hp -= 15;
-                        // Knockback
-                        closest.x += dx * 0.2;
-                        closest.y += dy * 0.2;
-                    }
+                const dx = enemy.x - this.player.x;
+                const dy = enemy.y - this.player.y;
+                const dist = Math.hypot(dx, dy);
+
+                // Long range - can hit from far away
+                if (dist > 15) continue;
+
+                // Check if enemy is in front (using dot product)
+                const dot = (dx * this.player.dirX + dy * this.player.dirY) / dist;
+
+                // Tight aim required (crosshair precision)
+                if (dot > 0.95) { // Very accurate shot needed
+                    // HIGH DAMAGE - One-shot kill potential
+                    enemy.hp -= 50;
+                    break; // Only hit first enemy in line
                 }
             }
         }
@@ -284,14 +282,33 @@ class Raycaster {
             }
         }
 
-        // Weapon Overlay
-        const weaponOffset = Math.sin(this.weaponState) * 50;
-        ctx.fillStyle = '#9ca3af'; // Steel color
-        ctx.beginPath();
-        ctx.moveTo(w / 2, h);
-        ctx.lineTo(w / 2 - 50 + weaponOffset, h - 200 - weaponOffset);
-        ctx.lineTo(w / 2 + 50 + weaponOffset, h - 200 - weaponOffset);
-        ctx.fill();
+        // Draw Futuristic Energy Gun
+        const kickback = this.weaponState > 0 ? Math.sin(this.weaponState * 3) * 20 : 0;
+        const muzzleFlash = this.weaponState > 0 && this.weaponState < 0.5;
+
+        // Gun barrel (rectangular, sci-fi)
+        ctx.fillStyle = '#4b5563'; // Dark metal
+        ctx.fillRect(w / 2 - 30, h - 150 + kickback, 60, 20);
+
+        // Gun body
+        ctx.fillStyle = '#6b7280'; // Light metal
+        ctx.fillRect(w / 2 - 40, h - 180 + kickback, 80, 40);
+
+        // Energy core (glowing cyan)
+        ctx.fillStyle = '#22d3ee'; // Cyan glow
+        ctx.fillRect(w / 2 - 25, h - 170 + kickback, 50, 20);
+
+        // Trigger/handle
+        ctx.fillStyle = '#374151';
+        ctx.fillRect(w / 2 - 15, h - 140 + kickback, 30, 50);
+
+        // Muzzle flash
+        if (muzzleFlash) {
+            ctx.fillStyle = 'rgba(0, 255, 255, 0.8)'; // Cyan flash
+            ctx.beginPath();
+            ctx.arc(w / 2, h - 160, 30, 0, Math.PI * 2);
+            ctx.fill();
+        }
 
         // HUD
         ctx.fillStyle = 'white';
