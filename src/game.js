@@ -476,7 +476,7 @@ class Game {
 
                     if (hostile) {
                         console.log(`⚔️ COMBAT TRIGGERED (recursion: ${recursionDepth}): ${p1.name} vs ${p2.name}`);
-                        Combat.resolve(p1, p2, this);
+                        Combat.initiate(p1, p2, this);
                         console.log(`⚔️ Combat resolved, re-checking interactions...`);
                         this.checkInteractions(recursionDepth + 1);
                         return;
