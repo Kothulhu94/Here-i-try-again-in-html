@@ -117,6 +117,14 @@ class Party {
     updateAI(game) {
         if (this.partyType === 'player' || this.partyType === 'caravan') return;
 
+        // Early aggressive override for forced chase parties (e.g., ambush)
+        if (this.forceAggressive) {
+            this.aiState = 'chasing';
+            this.targetX = game.player.x;
+            this.targetY = game.player.y;
+            this.path = Pathfinder.findPathAStar(this.x, this.y, this.targetX, this.targetY, game.worldMap);
+            return;
+        }
         if (this.armyLeaderId) {
             const leader = game.player.id === this.armyLeaderId ? game.player : game.parties.find(p => p.id === this.armyLeaderId);
             if (leader) {

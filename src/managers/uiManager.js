@@ -58,6 +58,9 @@ class UIManager {
             loadGameButton: document.getElementById('load-game-button'),
             saveGameModalButton: document.getElementById('save-game-button'),
             loadGameModalButton: document.getElementById('load-game-button-modal'),
+            lootModal: document.getElementById('loot-modal'),
+            lootList: document.getElementById('loot-list'),
+            lootButton: document.getElementById('loot-take-button'),
         };
         this.bindEvents();
     }
@@ -90,6 +93,7 @@ class UIManager {
         this.elements.leaveTownButton.addEventListener('click', () => this.leaveTown());
         this.elements.leaveVillageButton.addEventListener('click', () => this.leaveVillage());
         this.elements.combatCloseButton.addEventListener('click', () => this.closeCombatReport());
+        this.elements.lootButton.addEventListener('click', () => this.closeLootModal());
 
         this.elements.townTabs.addEventListener('click', (e) => {
             const target = e.target;
@@ -596,71 +600,106 @@ class UIManager {
         this.elements.villageModal.classList.remove('hidden');
     }
 
-openStats() {
-    this.elements.statsModal.classList.remove('hidden');
-}
-
-closeStats() {
-    this.elements.statsModal.classList.add('hidden');
-}
-
-openLog() {
-    this.elements.logModal.classList.remove('hidden');
-}
-
-closeLog() {
-    this.elements.logModal.classList.add('hidden');
-}
-
-openKingdoms() {
-    this.updateKingdomsUI();
-    this.elements.kingdomsModal.classList.remove('hidden');
-}
-
-closeKingdoms() {
-    this.elements.kingdomsModal.classList.add('hidden');
-}
-
-leaveTown() {
-    this.elements.townModal.classList.add('hidden');
-    this.game.gameState = 'map';
-    this.game.currentLocation = null;
-    this.game.justLeftLocation = true;
-    setTimeout(() => this.game.justLeftLocation = false, 1000);
-}
-
-leaveVillage() {
-    this.elements.villageModal.classList.add('hidden');
-    this.game.gameState = 'map';
-    this.game.currentLocation = null;
-    this.game.justLeftLocation = true;
-    setTimeout(() => this.game.justLeftLocation = false, 1000);
-}
-
-showCombatReport(data) {
-    this.elements.combatTitle.textContent = data.title;
-    this.elements.combatResult.textContent = data.result;
-    this.elements.combatPlayerParty.textContent = data.playerPartyDesc;
-    this.elements.combatEnemyParty.textContent = data.enemyPartyDesc;
-    this.elements.combatLog.innerHTML = data.log;
-    this.elements.combatPlayerLosses.textContent = data.playerLosses;
-    this.elements.combatEnemyLosses.textContent = data.enemyLosses;
-
-    if (data.result.includes('Victory')) {
-        this.elements.combatResult.className = 'text-2xl font-bold text-center mb-4 text-green-400';
-    } else if (data.result.includes('Defeat')) {
-        this.elements.combatResult.className = 'text-2xl font-bold text-center mb-4 text-red-400';
-    } else {
-        this.elements.combatResult.className = 'text-2xl font-bold text-center mb-4 text-yellow-400';
+    openStats() {
+        this.elements.statsModal.classList.remove('hidden');
     }
 
-    this.elements.combatModal.classList.remove('hidden');
-}
+    closeStats() {
+        this.elements.statsModal.classList.add('hidden');
+    }
 
-closeCombatReport() {
-    this.elements.combatModal.classList.add('hidden');
-    this.game.gameState = 'map';
-}
+    openLog() {
+        this.elements.logModal.classList.remove('hidden');
+    }
+
+    closeLog() {
+        this.elements.logModal.classList.add('hidden');
+    }
+
+    openKingdoms() {
+        this.updateKingdomsUI();
+        this.elements.kingdomsModal.classList.remove('hidden');
+    }
+
+    closeKingdoms() {
+        this.elements.kingdomsModal.classList.add('hidden');
+    }
+
+    leaveTown() {
+        this.elements.townModal.classList.add('hidden');
+        this.game.gameState = 'map';
+        this.game.currentLocation = null;
+        this.game.justLeftLocation = true;
+        setTimeout(() => this.game.justLeftLocation = false, 1000);
+    }
+
+    leaveVillage() {
+        this.elements.villageModal.classList.add('hidden');
+        this.game.gameState = 'map';
+        this.game.currentLocation = null;
+        this.game.justLeftLocation = true;
+        setTimeout(() => this.game.justLeftLocation = false, 1000);
+    }
+
+    showCombatReport(data) {
+        this.elements.combatTitle.textContent = data.title;
+        this.elements.combatResult.textContent = data.result;
+        this.elements.combatPlayerParty.textContent = data.playerPartyDesc;
+        this.elements.combatEnemyParty.textContent = data.enemyPartyDesc;
+        this.elements.combatLog.innerHTML = data.log;
+        this.elements.combatPlayerLosses.textContent = data.playerLosses;
+        this.elements.combatEnemyLosses.textContent = data.enemyLosses;
+
+        if (data.result.includes('Victory')) {
+            this.elements.combatResult.className = 'text-2xl font-bold text-center mb-4 text-green-400';
+        } else if (data.result.includes('Defeat')) {
+            this.elements.combatResult.className = 'text-2xl font-bold text-center mb-4 text-red-400';
+        } else {
+            this.elements.combatResult.className = 'text-2xl font-bold text-center mb-4 text-yellow-400';
+        }
+
+        this.elements.combatModal.classList.remove('hidden');
+    }
+
+    closeCombatReport() {
+        this.elements.combatModal.classList.add('hidden');
+        this.game.gameState = 'map';
+    }
+
+    showLootModal(loot) {
+        this.elements.lootList.innerHTML = '';
+
+        // Gold
+        if (loot.gold > 0) {
+            const goldEl = document.createElement('div');
+            goldEl.className = 'flex justify-between items-center bg-zinc-900 p-3 rounded border border-yellow-900';
+            goldEl.innerHTML = `<span class="font-bold text-yellow-500">Gold</span> <span class="font-mono text-yellow-400">+${loot.gold}</span>`;
+            this.elements.lootList.appendChild(goldEl);
+        }
+
+        // Items
+        for (const [item, count] of Object.entries(loot.inventory)) {
+            if (count > 0) {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'flex justify-between items-center bg-zinc-900 p-3 rounded border border-zinc-700';
+                const itemName = GOODS[item]?.name || item;
+                itemEl.innerHTML = `<span class="text-zinc-300">${itemName}</span> <span class="font-mono text-green-400">+${count}</span>`;
+                this.elements.lootList.appendChild(itemEl);
+            }
+        }
+
+        if (this.elements.lootList.children.length === 0) {
+            this.elements.lootList.innerHTML = '<div class="text-center text-zinc-500 italic p-4">No loot found...</div>';
+        }
+
+        this.elements.lootModal.classList.remove('hidden');
+    }
+
+    closeLootModal() {
+        this.elements.lootModal.classList.add('hidden');
+        this.game.gameState = 'map';
+        this.game.resumeGame(); // Ensure game loop is running if it was paused
+    }
 
 
     _createMarketItem(name, stock, price, action, color, isVillage = false) {

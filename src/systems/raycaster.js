@@ -74,7 +74,7 @@ class Raycaster {
         this.onKeyUp = (e) => { this.keys[e.code] = false; };
         this.onMouseMove = (e) => {
             if (document.pointerLockElement === this.game.canvas) {
-                this.rotate(e.movementX * 0.002);
+                this.rotate(-e.movementX * 0.002);
             }
         };
         this.onMouseDown = (e) => {
@@ -112,7 +112,10 @@ class Raycaster {
         if (this.weaponState === 0) {
             this.weaponState = 1;
             // HITSCAN - Instant hit, no projectile
-            // Find enemy in crosshair (raytrace)
+
+            let bestTarget = null;
+            let closestDist = Infinity;
+
             for (const enemy of this.enemies) {
                 if (enemy.hp <= 0) continue;
 
@@ -120,18 +123,33 @@ class Raycaster {
                 const dy = enemy.y - this.player.y;
                 const dist = Math.hypot(dx, dy);
 
-                // Long range - can hit from far away
-                if (dist > 30) continue;
+                if (dist > 60) continue;
 
-                // Check if enemy is in front (using dot product)
-                const dot = (dx * this.player.dirX + dy * this.player.dirY) / dist;
+                // Calculate dot product (projection length of enemy vector onto aim direction)
+                const dot = dx * this.player.dirX + dy * this.player.dirY;
 
-                // Tight aim required (crosshair precision)
-                if (dot > 0.95) { // Very accurate shot needed
-                    // HIGH DAMAGE - One-shot kill potential
-                    enemy.hp -= 50;
-                    break; // Only hit first enemy in line
+                // Enemy must be in front of player
+                if (dot <= 0) continue;
+
+                // Calculate perpendicular distance from aim ray to enemy center
+                // perpDist^2 = dist^2 - dot^2
+                // This is essentially checking how far 'sideways' the enemy is from the crosshair center
+                const perpDistSq = (dist * dist) - (dot * dot);
+
+                // Hitbox width check
+                // If enemy radius is approx 0.4 world units (generous hitbox)
+                if (perpDistSq < 0.2) {
+                    // Check if this is the closest valid target
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        bestTarget = enemy;
+                    }
                 }
+            }
+
+            if (bestTarget) {
+                // HIGH DAMAGE - One-shot kill potential
+                bestTarget.hp -= 50;
             }
         }
     }
