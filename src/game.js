@@ -239,8 +239,12 @@ class Game {
         this.uiManager.updateTimeUI(this.currentDay, this.gameTime);
 
         this.player.updateSpeed();
+        const wasMoving = this.player.path && this.player.path.length > 0;
         this.player.move(gameHoursPassed);
-        if (this.player.path && this.player.path.length === 0 && Pathfinder.getDistance(this.player.x, this.player.y, this.player.targetX, this.player.targetY) < 10) {
+        const isMoving = this.player.path && this.player.path.length > 0;
+
+        // Only pause if we JUST arrived (was moving, now stopped, and close to target)
+        if (wasMoving && !isMoving && Pathfinder.getDistance(this.player.x, this.player.y, this.player.targetX, this.player.targetY) < 10) {
             this.gameSpeedMultiplier = 0;
             this.uiManager.updateTimeControlButton();
         }
@@ -622,6 +626,7 @@ class Game {
             this.lastHeartbeat = Date.now();
         }
         document.exitPointerLock();
+        this.uiManager.elements.uiOverlay.classList.remove('hidden');
 
         if (result.result === 'win') {
             console.log('🎉 Victory! Generating loot...');
@@ -655,7 +660,6 @@ class Game {
         } else {
             console.log('💀 Defeat. Retreating...');
             this.gameState = 'map';
-            this.uiManager.elements.uiOverlay.classList.remove('hidden');
 
             this.uiManager.addMessage("Defeated in 3D Combat...", "text-red-600");
             const losses = Math.floor(this.player.getPartySize() * 0.5);
