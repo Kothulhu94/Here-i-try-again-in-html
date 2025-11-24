@@ -96,15 +96,36 @@ class Game {
         this.gameLoop();
     }
 
-    startNewGame() {
+    async startNewGame() {
+        this.uiManager.showLoadingScreen();
+
+        // Step 1: Reset Game State
+        this.uiManager.updateLoadingProgress('Resetting game state...', 10);
+        await new Promise(r => setTimeout(r, 50));
+
         this.factions = {};
         this.parties = [];
         this.locationIdCounter = 0;
         this.partyIdCounter = 0;
 
+        // Step 2: Generate Terrain
+        this.uiManager.updateLoadingProgress('Generating world terrain...', 30);
+        await new Promise(r => setTimeout(r, 50));
         this.worldMap.generateTerrain();
+
+        // Step 3: Generate Locations
+        this.uiManager.updateLoadingProgress('Building towns and villages...', 50);
+        await new Promise(r => setTimeout(r, 50));
         this.generateLocations();
+
+        // Step 4: Initialize Diplomacy
+        this.uiManager.updateLoadingProgress('Establishing diplomatic relations...', 60);
+        await new Promise(r => setTimeout(r, 50));
         this.diplomacyManager.initialize(this.factions);
+
+        // Step 5: Spawn Player
+        this.uiManager.updateLoadingProgress('Awakening player...', 70);
+        await new Promise(r => setTimeout(r, 50));
 
         // Spawn player far from nearest town for isolation
         let playerStartX = MAP_DIMENSION / 2, playerStartY = MAP_DIMENSION / 2;
@@ -135,7 +156,10 @@ class Game {
         this.player = new Party('Player', playerStartX, playerStartY, 'player', 'player', BASE_PLAYER_SPEED, [{ type: 'the_sleeper', count: 1 }], 1000, 8);
         this.player.id = ++this.partyIdCounter;
 
-        // Spawn immediate ambush party nearby on passable terrain
+        // Step 6: Spawn AI Parties
+        this.uiManager.updateLoadingProgress('Spawning factions and bandits...', 85);
+        await new Promise(r => setTimeout(r, 50));
+
         // Spawn immediate ambush party nearby on passable terrain
         let ambushAngle = Math.random() * 2 * Math.PI;
         let ambushDistance = 300 + Math.random() * 200;
@@ -192,6 +216,9 @@ class Game {
             this.lastTimestamp = 0;
             this.gameLoop();
         }
+
+        this.uiManager.updateLoadingProgress('Ready!', 100);
+        this.uiManager.hideLoadingScreen();
     }
 
     gameLoop(timestamp) {
@@ -240,7 +267,7 @@ class Game {
 
         this.player.updateSpeed();
         const wasMoving = this.player.path && this.player.path.length > 0;
-        this.player.move(gameHoursPassed);
+        this.player.move(gameHoursPassed, this.worldMap);
         const isMoving = this.player.path && this.player.path.length > 0;
 
         // Only pause if we JUST arrived (was moving, now stopped, and close to target)
@@ -253,7 +280,7 @@ class Game {
         this.parties.forEach((party, index) => {
             try {
                 if (this.aiUpdateCounter % 3 === 0) party.updateAI(this);
-                party.move(gameHoursPassed);
+                party.move(gameHoursPassed, this.worldMap);
             } catch (error) {
                 console.error(`❌ Error updating party ${index} (${party.name}):`, error);
                 throw error;
@@ -450,13 +477,22 @@ class Game {
 
         if (this.gameState !== 'map') return;
 
-        if (!this.justLeftLocation) {
-            for (const loc of this.locations) {
-                if (Pathfinder.getDistance(this.player.x, this.player.y, loc.x, loc.y) < 1000) {
-                    this.player.path = [];
-                    if (loc.type === 'town') { this.uiManager.openTownModal(loc); return; }
-                    if (loc.type === 'village') { this.uiManager.openVillageModal(loc); return; }
-                }
+        for (const loc of this.locations) {
+            const dist = Pathfinder.getDistance(this.player.x, this.player.y, loc.x, loc.y);
+            const distToTarget = Pathfinder.getDistance(this.player.targetX, this.player.targetY, loc.x, loc.y);
+
+            // If we have moved far enough away from the location we just left, clear the flag
+            if (this.justLeftLocation === loc.id && dist > 1200) {
+                this.justLeftLocation = null;
+            }
+
+            // Enter location if close enough and we didn't just leave it
+            // AND if the location is our actual destination (target is close to location)
+            // We use 3500 as threshold because towns are large (4500 width)
+            if (dist < 1000 && this.justLeftLocation !== loc.id && distToTarget < 3500) {
+                this.player.path = [];
+                if (loc.type === 'town') { this.uiManager.openTownModal(loc); return; }
+                if (loc.type === 'village') { this.uiManager.openVillageModal(loc); return; }
             }
         }
 
@@ -605,6 +641,7 @@ class Game {
             }
         }
         this.locations = newLocations;
+        this.worldMap.generateRoads(this.locations);
     }
 
     start3DCombat(enemyParty) {
@@ -773,21 +810,35 @@ class Game {
         }
     }
 
-    loadGame() {
+    async loadGame() {
+        this.uiManager.showLoadingScreen();
+        this.uiManager.updateLoadingProgress('Reading save file...', 10);
+        await new Promise(r => setTimeout(r, 100));
+
         const savedDataString = localStorage.getItem('bannerlord2d_save');
         if (!savedDataString) {
             this.uiManager.addMessage("No save game found.", 'text-red-400');
+            this.uiManager.hideLoadingScreen();
             return false;
         }
         try {
             const saveData = JSON.parse(savedDataString);
+
+            this.uiManager.updateLoadingProgress('Restoring world map...', 30);
+            await new Promise(r => setTimeout(r, 50));
             this.worldMap.terrainGrid = saveData.terrainGrid;
+
+            this.uiManager.updateLoadingProgress('Rebuilding locations...', 50);
+            await new Promise(r => setTimeout(r, 50));
             this.locations = saveData.locations.map(locData => {
                 if (locData.type === 'town') return Object.assign(new Town(0, '', 0, 0, '', 0, {}), locData);
                 if (locData.type === 'village') return Object.assign(new Village(0, '', 0, 0, '', 0, '', 0, ''), locData);
                 if (locData.type === 'beast_den') return Object.assign(new BeastDen(0, '', 0, 0, '', 0), locData);
                 return Object.assign(new Location(0, '', 0, 0, ''), locData);
             });
+
+            this.uiManager.updateLoadingProgress('Mustering parties...', 70);
+            await new Promise(r => setTimeout(r, 50));
             this.parties = saveData.parties.map(pData => {
                 const p = Object.assign(new Party('', 0, 0, '', '', 0, []), pData);
                 p.path = p.path || [];
@@ -798,6 +849,8 @@ class Game {
 
             this.factions = saveData.factions;
 
+            this.uiManager.updateLoadingProgress('Restoring diplomacy...', 85);
+            await new Promise(r => setTimeout(r, 50));
             this.diplomacyManager.initialize(this.factions);
             if (saveData.diplomacy) {
                 this.diplomacyManager.relations = saveData.diplomacy.relations;
@@ -822,11 +875,15 @@ class Game {
             this.uiManager.updateTimeControlButton();
             this.uiManager.elements.messageLog.innerHTML = '';
             this.uiManager.addMessage("Game Loaded Successfully!", 'text-green-400');
+
+            this.uiManager.updateLoadingProgress('Ready!', 100);
+            this.uiManager.hideLoadingScreen();
             return true;
         } catch (error) {
             console.error("Error loading game:", error);
             this.uiManager.addMessage("Failed to load save data. It may be corrupted.", 'text-red-500');
             localStorage.removeItem('bannerlord2d_save');
+            this.uiManager.hideLoadingScreen();
             return false;
         }
     }

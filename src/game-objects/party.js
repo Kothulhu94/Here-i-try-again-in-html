@@ -95,9 +95,17 @@ class Party {
         this.speed = BASE_PLAYER_SPEED * speedMod;
     }
 
-    move(hoursPassed) {
+    move(hoursPassed, worldMap) {
         if (!this.path || this.path.length === 0) return;
-        let distanceToTravel = this.speed * hoursPassed;
+
+        let speedMod = 1.0;
+        if (worldMap) {
+            const terrain = worldMap.getTerrainAt(this.x, this.y);
+            speedMod = TERRAIN_TYPES[terrain]?.speedModifier || 1.0;
+            if (worldMap.isRoadAt(this.x, this.y)) speedMod = TERRAIN_TYPES['road'].speedModifier;
+        }
+
+        let distanceToTravel = this.speed * speedMod * hoursPassed;
         while (distanceToTravel > 0 && this.path.length > 0) {
             const nextNode = this.path[0];
             const distToNextNode = Pathfinder.getDistance(this.x, this.y, nextNode[0], nextNode[1]);

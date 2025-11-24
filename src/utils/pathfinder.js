@@ -5,9 +5,25 @@ class Pathfinder {
         if (steps <= 1) return true;
         const dx = (endX - startX) / steps;
         const dy = (endY - startY) / steps;
-        for (let i = 1; i < steps; i++) {
-            if (worldMap.isImpassable(worldMap.getTerrainAt(startX + dx * i, startY + dy * i))) {
-                return false;
+        const margin = GRID_SIZE / 8; // Define margin for corner checking
+
+        for (let i = 1; i <= steps; i++) {
+            const checkX = startX + dx * i;
+            const checkY = startY + dy * i;
+
+            const terrain = worldMap.getTerrainAt(checkX, checkY);
+            const isRoad = worldMap.isRoadAt(checkX, checkY);
+
+            if (worldMap.isImpassable(terrain) && !isRoad) return false;
+
+            // Check margins to ensure we don't clip corners (unless on a road)
+            if (!isRoad) {
+                if ((worldMap.isImpassable(worldMap.getTerrainAt(checkX + margin, checkY)) && !worldMap.isRoadAt(checkX + margin, checkY)) ||
+                    (worldMap.isImpassable(worldMap.getTerrainAt(checkX - margin, checkY)) && !worldMap.isRoadAt(checkX - margin, checkY)) ||
+                    (worldMap.isImpassable(worldMap.getTerrainAt(checkX, checkY + margin)) && !worldMap.isRoadAt(checkX, checkY + margin)) ||
+                    (worldMap.isImpassable(worldMap.getTerrainAt(checkX, checkY - margin)) && !worldMap.isRoadAt(checkX, checkY - margin))) {
+                    return false;
+                }
             }
         }
         return true;
@@ -53,19 +69,38 @@ class Pathfinder {
                     if (dx === 0 && dy === 0) continue;
                     const neighbor = { x: current.x + dx, y: current.y + dy };
                     if (neighbor.x < 0 || neighbor.x >= worldMap.gridWidth || neighbor.y < 0 || neighbor.y >= worldMap.gridHeight) continue;
+
                     const terrainType = worldMap.getTerrainAt(neighbor.x * GRID_SIZE, neighbor.y * GRID_SIZE);
-                    if (worldMap.isImpassable(terrainType)) continue;
+                    const isRoad = worldMap.isRoadAt(neighbor.x * GRID_SIZE, neighbor.y * GRID_SIZE);
+
+                    if (worldMap.isImpassable(terrainType) && !isRoad) continue;
 
                     if (dx !== 0 && dy !== 0) {
-                        const adjacent1Terrain = worldMap.getTerrainAt((current.x + dx) * GRID_SIZE + GRID_SIZE / 2, current.y * GRID_SIZE + GRID_SIZE / 2);
-                        const adjacent2Terrain = worldMap.getTerrainAt(current.x * GRID_SIZE + GRID_SIZE / 2, (current.y + dy) * GRID_SIZE + GRID_SIZE / 2);
-                        if (worldMap.isImpassable(adjacent1Terrain) || worldMap.isImpassable(adjacent2Terrain)) {
+                        // Diagonal check for cutting corners
+                        const adjacent1X = (current.x + dx) * GRID_SIZE + GRID_SIZE / 2;
+                        const adjacent1Y = current.y * GRID_SIZE + GRID_SIZE / 2;
+                        const adjacent2X = current.x * GRID_SIZE + GRID_SIZE / 2;
+                        const adjacent2Y = (current.y + dy) * GRID_SIZE + GRID_SIZE / 2;
+
+                        const t1 = worldMap.getTerrainAt(adjacent1X, adjacent1Y);
+                        const t2 = worldMap.getTerrainAt(adjacent2X, adjacent2Y);
+                        const r1 = worldMap.isRoadAt(adjacent1X, adjacent1Y);
+                        const r2 = worldMap.isRoadAt(adjacent2X, adjacent2Y);
+
+                        if ((worldMap.isImpassable(t1) && !r1) || (worldMap.isImpassable(t2) && !r2)) {
                             continue;
                         }
                     }
 
                     if (closedSet.has(nodeKey(neighbor))) continue;
-                    const tentative_gScore = gScore.get(nodeKey(current)) + this.getDistance(current.x, current.y, neighbor.x, neighbor.y);
+
+                    const dist = this.getDistance(current.x, current.y, neighbor.x, neighbor.y);
+                    let speedMod = TERRAIN_TYPES[terrainType]?.speedModifier || 1.0;
+                    if (isRoad) speedMod = TERRAIN_TYPES['road'].speedModifier;
+
+                    const movementCost = dist / speedMod;
+
+                    const tentative_gScore = gScore.get(nodeKey(current)) + movementCost;
                     if (!openSet.some(n => n.x === neighbor.x && n.y === neighbor.y)) openSet.push(neighbor);
                     else if (tentative_gScore >= (gScore.get(nodeKey(neighbor)) || Infinity)) continue;
                     cameFrom.set(nodeKey(neighbor), current);

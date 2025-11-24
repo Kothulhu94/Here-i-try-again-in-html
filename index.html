@@ -27,6 +27,17 @@
         </div>
     </div>
 
+    <!-- Loading Screen -->
+    <div id="loading-screen"
+        class="hidden fixed inset-0 bg-zinc-900 z-[60] flex flex-col items-center justify-center text-center p-4">
+        <h2 class="font-medieval text-4xl text-yellow-400 mb-4">Loading...</h2>
+        <div class="w-full max-w-md bg-zinc-800 rounded-full h-4 mb-4 border border-zinc-600 overflow-hidden">
+            <div id="loading-bar" class="bg-blue-600 h-4 rounded-full transition-all duration-200" style="width: 0%">
+            </div>
+        </div>
+        <p id="loading-text" class="text-zinc-400 font-mono text-lg">Initializing...</p>
+    </div>
+
     <div class="w-full max-w-7xl h-full flex flex-col md:flex-row gap-4 relative">
 
         <!-- Left Panel: Game Canvas (Now full width) -->
@@ -38,38 +49,38 @@
             <div id="ui-overlay" class="hidden absolute inset-0 p-4 pointer-events-none grid grid-cols-3 grid-rows-3">
 
                 <!-- Top-Left: Stats -->
-                <div class="col-start-1 row-start-1 pointer-events-auto flex gap-2">
+                <div class="col-start-1 row-start-1 flex gap-2">
                     <button id="stats-button"
-                        class="bg-zinc-800 bg-opacity-80 hover:bg-opacity-100 border border-zinc-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                        class="pointer-events-auto bg-zinc-800 bg-opacity-80 hover:bg-opacity-100 border border-zinc-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
                         Stats
                     </button>
                     <button id="kingdoms-button"
-                        class="bg-zinc-800 bg-opacity-80 hover:bg-opacity-100 border border-zinc-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                        class="pointer-events-auto bg-zinc-800 bg-opacity-80 hover:bg-opacity-100 border border-zinc-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
                         Kingdoms
                     </button>
                 </div>
 
                 <!-- Top-Center: Time -->
-                <div class="col-start-2 row-start-1 justify-self-center pointer-events-auto">
+                <div class="col-start-2 row-start-1 justify-self-center">
                     <div id="time-display"
-                        class="bg-zinc-800 bg-opacity-80 border border-zinc-600 text-white font-bold py-2 px-4 rounded-lg transition-colors text-center">
+                        class="pointer-events-auto bg-zinc-800 bg-opacity-80 border border-zinc-600 text-white font-bold py-2 px-4 rounded-lg transition-colors text-center">
                         <span id="time-day">Day 1</span>
                         <span id="time-clock" class="ml-2 font-mono">12:00</span>
                     </div>
                 </div>
 
                 <!-- Top-Right: Log -->
-                <div class="col-start-3 row-start-1 justify-self-end pointer-events-auto">
+                <div class="col-start-3 row-start-1 justify-self-end">
                     <button id="log-button"
-                        class="bg-zinc-800 bg-opacity-80 hover:bg-opacity-100 border border-zinc-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                        class="pointer-events-auto bg-zinc-800 bg-opacity-80 hover:bg-opacity-100 border border-zinc-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
                         Log
                     </button>
                 </div>
 
                 <!-- Bottom-Right: Time Control -->
-                <div class="col-start-3 row-start-3 justify-self-end self-end pointer-events-auto">
+                <div class="col-start-3 row-start-3 justify-self-end self-end">
                     <button id="time-control-button"
-                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors w-20 text-xl font-mono">
+                        class="pointer-events-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors w-20 text-xl font-mono">
                         ▶
                     </button>
                 </div>

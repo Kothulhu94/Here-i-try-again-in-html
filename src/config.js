@@ -1,9 +1,10 @@
 const GRID_SIZE = 100;
 const TERRAIN_TYPES = {
-    plains: { color: '#166534', name: 'Plains' },
-    forest: { color: '#14532d', name: 'Forest' },
-    mountain: { color: '#57534e', name: 'Mountains' },
-    water: { color: '#1d4ed8', name: 'Water' }
+    plains: { color: '#166534', name: 'Plains', speedModifier: 1.0 },
+    forest: { color: '#14532d', name: 'Forest', speedModifier: 0.75 },
+    mountain: { color: '#57534e', name: 'Mountains', speedModifier: 0.0 },
+    water: { color: '#1d4ed8', name: 'Water', speedModifier: 0.0 },
+    road: { color: '#d4d4d8', name: 'Road', speedModifier: 1.25 }
 };
 const TROOP_HP = 5;
 const TROOP_TYPES = {

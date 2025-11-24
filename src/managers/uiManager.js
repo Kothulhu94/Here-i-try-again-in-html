@@ -61,6 +61,9 @@ class UIManager {
             lootModal: document.getElementById('loot-modal'),
             lootList: document.getElementById('loot-list'),
             lootButton: document.getElementById('loot-take-button'),
+            loadingScreen: document.getElementById('loading-screen'),
+            loadingBar: document.getElementById('loading-bar'),
+            loadingText: document.getElementById('loading-text'),
         };
         this.bindEvents();
     }
@@ -626,19 +629,23 @@ class UIManager {
     }
 
     leaveTown() {
+        // Set justLeftLocation to the ID of the town we are leaving so we don't immediately re-enter
+        if (this.game.currentLocation) {
+            this.game.justLeftLocation = this.game.currentLocation.id;
+        }
         this.elements.townModal.classList.add('hidden');
         this.game.gameState = 'map';
         this.game.currentLocation = null;
-        this.game.justLeftLocation = true;
-        setTimeout(() => this.game.justLeftLocation = false, 1000);
     }
 
     leaveVillage() {
+        // Set justLeftLocation to the ID of the village we are leaving
+        if (this.game.currentLocation) {
+            this.game.justLeftLocation = this.game.currentLocation.id;
+        }
         this.elements.villageModal.classList.add('hidden');
         this.game.gameState = 'map';
         this.game.currentLocation = null;
-        this.game.justLeftLocation = true;
-        setTimeout(() => this.game.justLeftLocation = false, 1000);
     }
 
     showCombatReport(data) {
@@ -714,5 +721,22 @@ class UIManager {
                 <button class="bg-${color}-600 hover:bg-${color}-700 text-white px-2 py-1 rounded">${action}</button>
             </div>`;
         return itemEl;
+    }
+
+    showLoadingScreen() {
+        this.elements.loadingScreen.classList.remove('hidden');
+        this.updateLoadingProgress('Initializing...', 0);
+    }
+
+    updateLoadingProgress(text, percent) {
+        this.elements.loadingText.textContent = text;
+        this.elements.loadingBar.style.width = `${percent}%`;
+    }
+
+    hideLoadingScreen() {
+        // Small delay to ensure user sees 100%
+        setTimeout(() => {
+            this.elements.loadingScreen.classList.add('hidden');
+        }, 500);
     }
 }
