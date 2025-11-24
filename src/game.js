@@ -493,6 +493,7 @@ class Game {
                 this.player.path = [];
                 if (loc.type === 'town') { this.uiManager.openTownModal(loc); return; }
                 if (loc.type === 'village') { this.uiManager.openVillageModal(loc); return; }
+                if (loc.type === 'beast_den') { this.startDenCombat(loc, this.player); return; }
             }
         }
 
@@ -654,6 +655,48 @@ class Game {
         }, 100);
     }
 
+    startDenCombat(den, attacker) {
+        this.gameSpeedMultiplier = 0;
+        this.uiManager.updateTimeControlButton();
+
+        // 1. Create Defender Party
+        const defenderParty = new Party(`${den.name} Defenders`, den.x, den.y, 'beast', 'beast', 0, [], 0, 10);
+        defenderParty.party.push({ type: 'wild_beast', count: 10 + Math.floor(den.power / 5) });
+
+        // 2. Merge nearby beasts
+        const nearbyBeasts = this.parties.filter(p => p.factionId === 'beast' && Pathfinder.getDistance(den.x, den.y, p.x, p.y) < 3000);
+        let mergedCount = 0;
+        nearbyBeasts.forEach(p => {
+            p.party.forEach(t => {
+                const existing = defenderParty.party.find(dt => dt.type === t.type);
+                if (existing) existing.count += t.count;
+                else defenderParty.party.push({ ...t });
+            });
+            mergedCount++;
+        });
+
+        // Remove merged parties from map
+        this.parties = this.parties.filter(p => !nearbyBeasts.includes(p));
+
+        if (mergedCount > 0) {
+            this.uiManager.addMessage(`${mergedCount} nearby beast packs joined the defense!`, 'text-red-500');
+        }
+
+        // 3. Start Combat
+        this.currentCombatLocation = den;
+        this.currentCombatType = 'den_raid';
+
+        if (attacker === this.player) {
+            this.uiManager.showCombatOptions(this.player, defenderParty);
+        } else {
+            // AI vs Den auto-resolve (simplified for now)
+            // For now, let's just ignore AI vs Den or auto-resolve it silently?
+            // The prompt asks for AI Lord Integration later.
+            // Let's implement basic auto-resolve for AI lords here if needed, or just skip.
+            // Assuming this is primarily for player interaction for now based on 'checkInteractions'.
+        }
+    }
+
     finish3DCombat(result) {
         console.log('🎮 finish3DCombat called, result:', result);
         if (this.raycaster) {
@@ -694,6 +737,13 @@ class Game {
                 this.parties = this.parties.filter(p => p !== this.currentEnemyParty);
                 this.currentEnemyParty = null;
             }
+
+            if (this.currentCombatType === 'den_raid' && this.currentCombatLocation) {
+                this.uiManager.addMessage(`You have destroyed ${this.currentCombatLocation.name}!`, 'text-green-500 font-bold');
+                this.locations = this.locations.filter(l => l !== this.currentCombatLocation);
+                this.currentCombatLocation = null;
+                this.currentCombatType = null;
+            }
         } else {
             console.log('💀 Defeat. Retreating...');
             this.gameState = 'map';
@@ -704,6 +754,13 @@ class Game {
             this.uiManager.addMessage(`You lost ${losses} troops and retreated.`, "text-red-400");
             this.player.x += (Math.random() - 0.5) * 2000;
             this.player.y += (Math.random() - 0.5) * 2000;
+
+            if (this.currentCombatType === 'den_raid' && this.currentCombatLocation) {
+                this.currentCombatLocation.power += 5;
+                this.uiManager.addMessage(`${this.currentCombatLocation.name} grows stronger from your defeat!`, 'text-purple-400');
+                this.currentCombatLocation = null;
+                this.currentCombatType = null;
+            }
         }
 
         this.uiManager.updatePlayerStats(this.player, this.currentDay);

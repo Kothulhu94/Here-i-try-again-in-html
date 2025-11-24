@@ -149,7 +149,7 @@ class Party {
             }
         }
 
-        const SIGHT_RANGE = 4000;
+        const SIGHT_RANGE = this.factionId === 'beast' ? 6000 : 4000;
         const nearbyHostiles = [game.player, ...game.parties].filter(p => p !== this && game.isHostile(this, p) && Pathfinder.getDistance(this.x, this.y, p.x, p.y) < SIGHT_RANGE);
 
         if (nearbyHostiles.length > 0) {
@@ -211,6 +211,26 @@ class Party {
                             foundNewTask = true;
                         }
                         break;
+
+                    case 'clear_den':
+                        const dens = game.locations.filter(l => l.type === 'beast_den');
+                        let closestDen = null;
+                        let minDenDist = 15000;
+
+                        for (const den of dens) {
+                            const dist = Pathfinder.getDistance(this.x, this.y, den.x, den.y);
+                            if (dist < minDenDist) {
+                                minDenDist = dist;
+                                closestDen = den;
+                            }
+                        }
+
+                        if (closestDen) {
+                            this.targetX = closestDen.x; this.targetY = closestDen.y;
+                            this.path = Pathfinder.findPathAStar(this.x, this.y, this.targetX, this.targetY, game.worldMap);
+                            foundNewTask = true;
+                        }
+                        break;
                 }
                 if (foundNewTask) return;
             } else {
@@ -221,13 +241,34 @@ class Party {
         if ((this.path.length === 0 || this.aiState === 'fleeing' || this.aiState === 'chasing')) {
             this.aiState = 'patrolling';
             let targetX, targetY, attempts = 0;
-            do {
-                const angle = Math.random() * 2 * Math.PI;
-                const distance = 5000 + Math.random() * 10000;
-                targetX = this.x + Math.cos(angle) * distance;
-                targetY = this.y + Math.sin(angle) * distance;
-                attempts++;
-            } while (game.worldMap.isImpassable(game.worldMap.getTerrainAt(targetX, targetY)) && attempts < 10);
+
+            // Beast Tethering Logic
+            if (this.factionId === 'beast' && this.homeDenId) {
+                const den = game.locations.find(l => l.id === this.homeDenId);
+                if (den) {
+                    do {
+                        const angle = Math.random() * 2 * Math.PI;
+                        const distance = Math.random() * 2000; // Tether within 2000 units
+                        targetX = den.x + Math.cos(angle) * distance;
+                        targetY = den.y + Math.sin(angle) * distance;
+                        attempts++;
+                    } while (game.worldMap.isImpassable(game.worldMap.getTerrainAt(targetX, targetY)) && attempts < 10);
+                } else {
+                    // Den destroyed? Roam freely or despawn (roam for now)
+                    this.homeDenId = null;
+                }
+            }
+
+            if (!targetX) { // Default random patrol
+                do {
+                    const angle = Math.random() * 2 * Math.PI;
+                    const distance = 5000 + Math.random() * 10000;
+                    targetX = this.x + Math.cos(angle) * distance;
+                    targetY = this.y + Math.sin(angle) * distance;
+                    attempts++;
+                } while (game.worldMap.isImpassable(game.worldMap.getTerrainAt(targetX, targetY)) && attempts < 10);
+            }
+
             this.targetX = targetX; this.targetY = targetY;
             this.path = Pathfinder.findPathAStar(this.x, this.y, this.targetX, this.targetY, game.worldMap);
         }

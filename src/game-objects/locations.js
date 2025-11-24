@@ -289,8 +289,11 @@ class BeastDen extends Location {
     }
 
     dailyUpdate(game) {
-        if (Math.random() < 0.3 + (this.power / 100)) {
-            this.spawnBeastParty(game);
+        const activeBeasts = game.parties.filter(p => p.homeDenId === this.id).length;
+        if (activeBeasts < 3) {
+            if (Math.random() < 0.5 + (this.power / 100)) {
+                this.spawnBeastParty(game);
+            }
         }
     }
 

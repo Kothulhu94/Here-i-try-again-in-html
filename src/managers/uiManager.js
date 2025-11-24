@@ -69,6 +69,7 @@ class UIManager {
     }
 
     bindEvents() {
+        this.optimizeConsole();
         this.elements.newGameButton.addEventListener('click', () => this.game.startNewGame());
         this.elements.loadGameButton.addEventListener('click', () => this.game.loadGame());
         this.elements.saveGameModalButton.addEventListener('click', () => this.game.saveGame());
@@ -112,6 +113,16 @@ class UIManager {
                 target.classList.remove('text-zinc-400');
             }
         });
+    }
+
+    optimizeConsole() {
+        // Store original methods if needed for debugging later
+        // window.originalConsole = { log: console.log, warn: console.warn };
+
+        // Override with empty functions to boost performance
+        console.log = function () { };
+        console.warn = function () { };
+        // We keep console.error active for critical issues
     }
 
     checkSaveGameExists() {
