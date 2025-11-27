@@ -50,148 +50,130 @@
 
                 <!-- Top-Left: Stats -->
                 <div class="col-start-1 row-start-1 flex gap-2">
-                    <button id="stats-button"
-                        class="pointer-events-auto bg-zinc-800 bg-opacity-80 hover:bg-opacity-100 border border-zinc-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
-                        Stats
-                    </button>
-                    <button id="kingdoms-button"
-                        class="pointer-events-auto bg-zinc-800 bg-opacity-80 hover:bg-opacity-100 border border-zinc-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
-                        Kingdoms
-                    </button>
-                </div>
-
-                <!-- Top-Center: Time -->
-                <div class="col-start-2 row-start-1 justify-self-center">
                     <div id="time-display"
-                        class="pointer-events-auto bg-zinc-800 bg-opacity-80 border border-zinc-600 text-white font-bold py-2 px-4 rounded-lg transition-colors text-center">
-                        <span id="time-day">Day 1</span>
-                        <span id="time-clock" class="ml-2 font-mono">12:00</span>
-                    </div>
-                </div>
-
-                <!-- Top-Right: Log -->
-                <div class="col-start-3 row-start-1 justify-self-end">
-                    <button id="log-button"
-                        class="pointer-events-auto bg-zinc-800 bg-opacity-80 hover:bg-opacity-100 border border-zinc-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
-                        Log
-                    </button>
-                </div>
-
-                <!-- Bottom-Right: Time Control -->
-                <div class="col-start-3 row-start-3 justify-self-end self-end">
-                    <button id="time-control-button"
                         class="pointer-events-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors w-20 text-xl font-mono">
                         ▶
-                    </button>
-                </div>
+                        </button>
+                    </div>
 
+                </div>
             </div>
+
         </div>
 
-    </div>
-
-    <!-- Stats Modal -->
-    <div id="stats-modal"
-        class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 overflow-y-auto z-50">
-        <div class="bg-zinc-800 rounded-lg shadow-2xl border border-zinc-600 w-full max-w-md p-6">
-            <h2 class="font-medieval text-2xl text-yellow-400 mb-3">Player Stats</h2>
-            <div class="space-y-2 mb-6">
-                <div class="flex justify-between">
-                    <span>Day:</span>
-                    <span id="day-stat" class="font-semibold">1</span>
-                </div>
-                <div class="flex justify-between">
-                    <span>Gold:</span>
-                    <span id="gold-stat" class="font-semibold text-yellow-500">1000 G</span>
-                </div>
-                <div class="flex justify-between">
-                    <span>Army Size:</span>
-                    <span id="army-stat" class="font-semibold">10</span>
-                </div>
-                <div class="flex justify-between">
-                    <span>Army Attack:</span>
-                    <span id="attack-stat" class="font-semibold">10</span>
-                </div>
-                <div class="flex justify-between">
-                    <span>Army Defense:</span>
-                    <span id="defense-stat" class="font-semibold">10</span>
-                </div>
-                <div class="flex justify-between">
-                    <span>Speed (units/hr):</span>
-                    <span id="speed-stat" class="font-semibold">18000</span>
-                </div>
-            </div>
-
-            <h3 class="font-medieval text-xl text-yellow-400 mb-3 border-t border-zinc-600 pt-4">Inventory</h3>
-            <div id="inventory-stat" class="space-y-1 text-zinc-300 mb-6 min-h-[40px]">
-                <p class="text-zinc-500">No goods.</p>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3 pt-6 mt-6 border-t border-zinc-600">
-                <button id="save-game-button"
-                    class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">Save</button>
-                <button id="load-game-button-modal"
-                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">Load</button>
-            </div>
-
-            <button id="stats-close-button"
-                class="w-full bg-zinc-600 hover:bg-zinc-700 text-white font-bold py-3 px-4 rounded-lg transition-colors mt-3">
-                Close
-            </button>
-        </div>
-    </div>
-
-    <!-- Log Modal -->
-    <div id="log-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
-        <div class="bg-zinc-800 rounded-lg shadow-2xl border border-zinc-600 w-full max-w-md p-6 flex flex-col h-3/4">
-            <h2 class="font-medieval text-2xl text-blue-400 mb-3">Game Log</h2>
-            <div id="messageLog"
-                class="flex-grow text-sm space-y-2 overflow-y-auto pr-2 text-zinc-300 custom-scrollbar min-h-0 mb-6">
-                <!-- Messages will be added here -->
-            </div>
-            <button id="log-close-button"
-                class="w-full bg-zinc-600 hover:bg-zinc-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
-                Close
-            </button>
-        </div>
-    </div>
-
-    <!-- Kingdoms Modal -->
-    <div id="kingdoms-modal"
-        class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
-        <div
-            class="bg-zinc-800 rounded-lg shadow-2xl border border-zinc-600 w-full max-w-4xl p-6 flex flex-col max-h-[90vh]">
-            <h2 class="font-medieval text-3xl text-yellow-400 mb-4">Kingdoms of the Realm</h2>
-            <div id="kingdoms-content" class="flex-grow overflow-y-auto custom-scrollbar pr-2">
-                <!-- Content generated by JS -->
-            </div>
-            <button id="kingdoms-close-button"
-                class="w-full bg-zinc-600 hover:bg-zinc-700 text-white font-bold py-3 px-4 rounded-lg transition-colors mt-4">
-                Close
-            </button>
-        </div>
-    </div>
-
-
-    <!-- Modal: Town -->
-    <div id="town-modal"
-        class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50 overflow-y-auto">
-        <div class="bg-zinc-800 rounded-lg shadow-2xl border border-zinc-600 w-full max-w-2xl p-6">
-            <div class="flex justify-between items-start">
-                <div>
-                    <h2 id="town-name" class="font-medieval text-3xl text-yellow-400 mb-1 inline">Town Name</h2>
-                    <span id="town-faction" class="font-medieval text-xl ml-4">Faction</span>
-                    <div class="flex gap-4 text-zinc-300 mb-4 text-sm">
-                        <span>Level: <span id="town-level" class="font-semibold text-white">1</span></span>
-                        <span>Treasury: <span id="town-treasury" class="font-semibold text-yellow-500">0 G</span></span>
-                        <span>Garrison: <span id="town-garrison-size" class="font-semibold text-white">0</span></span>
+        <!-- Stats Modal -->
+        <div id="stats-modal"
+            class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 overflow-y-auto z-50">
+            <div class="bg-zinc-800 rounded-lg shadow-2xl border border-zinc-600 w-full max-w-md p-6">
+                <h2 class="font-medieval text-2xl text-yellow-400 mb-3">Player Stats</h2>
+                <div class="space-y-2 mb-6">
+                    <div class="flex justify-between">
+                        <span>Day:</span>
+                        <span id="day-stat" class="font-semibold">1</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Gold:</span>
+                        <span id="gold-stat" class="font-semibold text-yellow-500">1000 G</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Army Size:</span>
+                        <span id="army-stat" class="font-semibold">10</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Army Attack:</span>
+                        <span id="attack-stat" class="font-semibold">10</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Army Defense:</span>
+                        <span id="defense-stat" class="font-semibold">10</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Speed (units/hr):</span>
+                        <span id="speed-stat" class="font-semibold">18000</span>
                     </div>
                 </div>
-                <div id="town-tabs" class="flex border-b border-zinc-700">
-                    <button class="town-tab-button px-4 py-2 bg-zinc-700 text-white rounded-t-lg"
-                        data-tab="market">Market</button>
-                    <button class="town-tab-button px-4 py-2 text-zinc-400" data-tab="recruit">Recruit</button>
-                    <button class="town-tab-button px-4 py-2 text-zinc-400" data-tab="politics">Politics</button>
+
+                <h3 class="font-medieval text-xl text-yellow-400 mb-3 border-t border-zinc-600 pt-4">Inventory</h3>
+                <div id="inventory-stat" class="space-y-1 text-zinc-300 mb-6 min-h-[40px]">
+                    <p class="text-zinc-500">No goods.</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 pt-6 mt-6 border-t border-zinc-600">
+                    <button id="save-game-button"
+                        class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">Save</button>
+                    <button id="load-game-button-modal"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">Load</button>
+                </div>
+
+                <button id="stats-close-button"
+                    class="bg-zinc-800 rounded-lg shadow-2xl border border-zinc-600 w-full max-w-4xl p-6 flex flex-col max-h-[90vh]">
+                    <h2 class="font-medieval text-3xl text-yellow-400 mb-4">Kingdoms of the Realm</h2>
+                    <div id="kingdoms-content" class="flex-grow overflow-y-auto custom-scrollbar pr-2">
+                        <!-- Content generated by JS -->
+                    </div>
+                    <button id="kingdoms-close-button"
+                        class="w-full bg-zinc-600 hover:bg-zinc-700 text-white font-bold py-3 px-4 rounded-lg transition-colors mt-4">
+                        Close
+                    </button>
+            </div>
+        </div>
+
+
+        <!-- Modal: Town -->
+        <div id="town-modal"
+            class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50 overflow-y-auto">
+            <div class="bg-zinc-800 rounded-lg shadow-2xl border border-zinc-600 w-full max-w-2xl p-6">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h2 id="town-name" class="font-medieval text-3xl text-yellow-400 mb-1 inline">Town Name</h2>
+                        <span id="town-faction" class="font-medieval text-xl ml-4">Faction</span>
+                        <div class="flex gap-4 text-zinc-300 mb-4 text-sm">
+                            <span>Level: <span id="town-level" class="font-semibold text-white">1</span></span>
+                            <span>Treasury: <span id="town-treasury" class="font-semibold text-yellow-500">0
+                                    G</span></span>
+                            <span>Garrison: <span id="town-garrison-size"
+                                    class="font-semibold text-white">0</span></span>
+                        </div>
+                    </div>
+                    <div id="town-tabs" class="flex border-b border-zinc-700">
+                        <button class="town-tab-button px-4 py-2 bg-zinc-700 text-white rounded-t-lg"
+                            data-tab="market">Market</button>
+                        <button class="town-tab-button px-4 py-2 text-zinc-400" data-tab="recruit">Recruit</button>
+                        <button class="town-tab-button px-4 py-2 text-zinc-400" data-tab="politics">Politics</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Party Modal -->
+            <div id="party-modal"
+                class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+                <div
+                    class="bg-zinc-800 rounded-lg shadow-2xl border border-zinc-600 w-full max-w-2xl p-6 flex flex-col max-h-[90vh]">
+                    <h2 class="font-medieval text-3xl text-blue-400 mb-4">Party Management</h2>
+
+                    <div class="flex justify-between items-center mb-4 bg-zinc-900 p-3 rounded">
+                        <div>
+                            <span class="text-zinc-400">Troops:</span> <span id="party-count"
+                                class="text-white font-bold">0/0</span>
+                        </div>
+                        <div>
+                            <span class="text-zinc-400">Wages:</span> <span id="party-wages"
+                                class="text-yellow-500 font-bold">0 G/day</span>
+                        </div>
+                        <div>
+                            <span class="text-zinc-400">Morale:</span> <span
+                                class="text-green-400 font-bold">High</span>
+                        </div>
+                    </div>
+
+                    <div id="party-list" class="flex-grow overflow-y-auto custom-scrollbar pr-2 space-y-2">
+                        <!-- Party list generated by JS -->
+                    </div>
+
+                    <button id="party-close-button"
+                        class="w-full bg-zinc-600 hover:bg-zinc-700 text-white font-bold py-3 px-4 rounded-lg transition-colors mt-4">
+                        Close
+                    </button>
                 </div>
             </div>
 

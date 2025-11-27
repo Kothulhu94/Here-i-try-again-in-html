@@ -152,9 +152,10 @@ class Game {
             playerStartX += (Math.random() - 0.5) * 1000; playerStartY += (Math.random() - 0.5) * 1000;
         }
 
-        // Start with 1 'the_sleeper' unit (Cryo-Awakening scenario)
-        this.player = new Party('Player', playerStartX, playerStartY, 'player', 'player', BASE_PLAYER_SPEED, [{ type: 'the_sleeper', count: 1 }], 1000, 8);
+        // Start with 1 'the_sleeper' unit and some recruits
+        this.player = new Party('Player', playerStartX, playerStartY, 'player', 'player', BASE_PLAYER_SPEED, [{ type: 'the_sleeper', count: 1 }, { type: 'recruit', count: 5, xp: 0 }], 1000, 8);
         this.player.id = ++this.partyIdCounter;
+        this.player.activeQuests = [];
 
         // Step 6: Spawn AI Parties
         this.uiManager.updateLoadingProgress('Spawning factions and bandits...', 85);
@@ -491,6 +492,7 @@ class Game {
             // We use 3500 as threshold because towns are large (4500 width)
             if (dist < 1000 && this.justLeftLocation !== loc.id && distToTarget < 3500) {
                 this.player.path = [];
+                this.checkQuestProgress();
                 if (loc.type === 'town') { this.uiManager.openTownModal(loc); return; }
                 if (loc.type === 'village') { this.uiManager.openVillageModal(loc); return; }
                 if (loc.type === 'beast_den') { this.startDenCombat(loc, this.player); return; }
@@ -722,7 +724,12 @@ class Game {
 
             const renownGain = 10;
             this.player.renown += renownGain;
-            this.uiManager.addMessage(`Gained ${renownGain} Renown.`, "text-yellow-400");
+
+            // XP Gain
+            const xpGain = Math.floor(this.currentEnemyParty.getPartyPower() * 5) + 50;
+            this.player.addXp(xpGain);
+
+            this.uiManager.addMessage(`Gained ${renownGain} Renown and ${xpGain} Party XP.`, "text-yellow-400");
 
             // Generate and Award Loot
             const loot = this.generateBattleLoot(this.currentEnemyParty);
@@ -814,6 +821,29 @@ class Game {
         }
 
         return { gold: totalGold, inventory };
+    }
+
+    checkQuestProgress() {
+        if (!this.player || !this.player.activeQuests) return;
+
+        this.player.activeQuests.forEach(quest => {
+            if (quest.status !== 'active') return;
+
+            if (quest.type === 'delivery') {
+                if (this.currentLocation && this.currentLocation.id === quest.targetId) {
+                    // Check if player has the item
+                    if (this.player.inventory[quest.item] >= quest.amount) {
+                        quest.status = 'completed';
+                        this.player.inventory[quest.item] -= quest.amount;
+                        this.player.gold += quest.rewardGold;
+                        this.player.renown += quest.rewardRenown;
+                        this.uiManager.addMessage(`Quest Completed: ${quest.title}`, 'text-green-400');
+                        this.uiManager.addMessage(`Reward: ${quest.rewardGold} G, ${quest.rewardRenown} Renown`, 'text-yellow-400');
+                        this.uiManager.updatePlayerStats(this.player, this.currentDay);
+                    }
+                }
+            }
+        });
     }
 
     createAIParty(partyType, name, x, y, factionId) {

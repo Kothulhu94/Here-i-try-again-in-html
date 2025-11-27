@@ -96,7 +96,11 @@ class Combat {
                 game.player.gold += goldGained;
                 const renownGain = Math.max(1, Math.floor(initialSizeB / 5));
                 game.player.renown += renownGain;
-                game.uiManager.addMessage(`You looted ${goldGained} G and gained ${renownGain} Renown.`, 'text-yellow-400');
+
+                const xpGain = Math.floor(Party.getPartyPower(initialPartyB) * 5) + 20;
+                game.player.addXp(xpGain);
+
+                game.uiManager.addMessage(`You looted ${goldGained} G, gained ${renownGain} Renown and ${xpGain} XP.`, 'text-yellow-400');
             } else {
                 const goldLost = Math.min(game.player.gold, 50 + Math.floor(Math.random() * 50));
                 game.player.gold -= goldLost;

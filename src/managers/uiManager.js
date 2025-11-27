@@ -64,6 +64,16 @@ class UIManager {
             loadingScreen: document.getElementById('loading-screen'),
             loadingBar: document.getElementById('loading-bar'),
             loadingText: document.getElementById('loading-text'),
+            partyModal: document.getElementById('party-modal'),
+            partyButton: document.getElementById('party-button'),
+            partyCloseButton: document.getElementById('party-close-button'),
+            partyList: document.getElementById('party-list'),
+            partyCount: document.getElementById('party-count'),
+            partyWages: document.getElementById('party-wages'),
+            questsModal: document.getElementById('quests-modal'),
+            questsButton: document.getElementById('quests-button'),
+            questsCloseButton: document.getElementById('quests-close-button'),
+            questsList: document.getElementById('quests-list'),
         };
         this.bindEvents();
     }
@@ -90,9 +100,18 @@ class UIManager {
         this.elements.logCloseButton.addEventListener('click', () => this.closeLog());
         this.elements.logModal.addEventListener('click', (e) => { if (e.target === this.elements.logModal) this.closeLog(); });
 
+        this.elements.questsButton.addEventListener('click', () => this.openQuests());
+        this.elements.questsCloseButton.addEventListener('click', () => this.closeQuests());
+        this.elements.questsModal.addEventListener('click', (e) => { if (e.target === this.elements.questsModal) this.closeQuests(); });
+
         this.elements.kingdomsButton.addEventListener('click', () => this.openKingdoms());
         this.elements.kingdomsCloseButton.addEventListener('click', () => this.closeKingdoms());
+        this.elements.kingdomsCloseButton.addEventListener('click', () => this.closeKingdoms());
         this.elements.kingdomsModal.addEventListener('click', (e) => { if (e.target === this.elements.kingdomsModal) this.closeKingdoms(); });
+
+        this.elements.partyButton.addEventListener('click', () => this.openParty());
+        this.elements.partyCloseButton.addEventListener('click', () => this.closeParty());
+        this.elements.partyModal.addEventListener('click', (e) => { if (e.target === this.elements.partyModal) this.closeParty(); });
 
         this.elements.leaveTownButton.addEventListener('click', () => this.leaveTown());
         this.elements.leaveVillageButton.addEventListener('click', () => this.leaveVillage());
@@ -243,10 +262,28 @@ class UIManager {
             document.getElementById('town-market-tab').parentElement.appendChild(content);
         }
 
+        // Inject Tavern Tab if missing
+        if (!document.getElementById('town-tavern-tab-btn')) {
+            const btn = document.createElement('button');
+            btn.id = 'town-tavern-tab-btn';
+            btn.className = 'town-tab-button px-4 py-2 rounded hover:bg-zinc-700 text-zinc-400';
+            btn.dataset.tab = 'tavern';
+            btn.textContent = 'Tavern';
+            this.elements.townTabs.appendChild(btn);
+        }
+        // Inject Tavern Content if missing
+        if (!document.getElementById('town-tavern-tab')) {
+            const content = document.createElement('div');
+            content.id = 'town-tavern-tab';
+            content.className = 'town-tab-content hidden';
+            document.getElementById('town-market-tab').parentElement.appendChild(content);
+        }
+
         this.updateTownMarketUI(town);
         this.updateRecruitmentUI(town);
         this.updateTownPoliticsUI(town);
         this.updateTownKeepUI(town);
+        this.updateTownTavernUI(town);
 
         document.querySelectorAll('.town-tab-content').forEach(el => el.classList.add('hidden'));
         document.getElementById('town-market-tab').classList.remove('hidden');
@@ -291,8 +328,9 @@ class UIManager {
                     t.activeProject = projectKey;
                     this.updateTownKeepUI(t);
                 }
-            };
+            }
         }
+
 
         // Contracts (If Independent or Mercenary)
         if (this.game.player.factionId === 'player' || this.game.player.allegianceType === 'mercenary') {
@@ -320,6 +358,95 @@ class UIManager {
                 }, 0);
             }
         }
+    }
+
+    updateTownTavernUI(town) {
+        const container = document.getElementById('town-tavern-tab');
+        container.innerHTML = '';
+
+        container.innerHTML += `<div class="bg-zinc-900 p-4 rounded mb-4">
+            <h3 class="font-medieval text-lg text-yellow-400 mb-2">Available Quests</h3>
+            <div id="tavern-quests-list" class="space-y-2"></div>
+        </div>`;
+
+        const list = document.getElementById('tavern-quests-list');
+        if (!town.availableQuests || town.availableQuests.length === 0) {
+            list.innerHTML = '<p class="text-zinc-500 italic">No quests available at the moment.</p>';
+        } else {
+            town.availableQuests.forEach(quest => {
+                const questEl = document.createElement('div');
+                questEl.className = 'bg-zinc-800 p-3 rounded border border-zinc-700 flex justify-between items-center';
+                questEl.innerHTML = `
+                    <div>
+                        <div class="font-bold text-white">${quest.title}</div>
+                        <div class="text-xs text-zinc-400">${quest.description}</div>
+                        <div class="text-xs text-yellow-500 mt-1">Reward: ${quest.rewardGold} G, ${quest.rewardRenown} Renown</div>
+                    </div>
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-bold">Accept</button>
+                `;
+                questEl.querySelector('button').addEventListener('click', () => {
+                    if (this.game.player.activeQuests.length >= 5) {
+                        this.addMessage("You have too many active quests!", "text-red-500");
+                        return;
+                    }
+                    this.game.player.activeQuests.push(quest);
+                    town.availableQuests = town.availableQuests.filter(q => q !== quest);
+                    this.addMessage(`Accepted quest: ${quest.title}`, "text-green-400");
+                    this.updateTownTavernUI(town);
+                });
+                list.appendChild(questEl);
+            });
+        }
+    }
+
+    openQuests() {
+        this.renderQuests();
+        this.elements.questsModal.classList.remove('hidden');
+    }
+
+    closeQuests() {
+        this.elements.questsModal.classList.add('hidden');
+    }
+
+    renderQuests() {
+        this.elements.questsList.innerHTML = '';
+        if (this.game.player.activeQuests.length === 0) {
+            this.elements.questsList.innerHTML = '<div class="text-center text-zinc-500 italic p-4">No active quests. Visit taverns to find work.</div>';
+            return;
+        }
+
+        this.game.player.activeQuests.forEach(quest => {
+            const questEl = document.createElement('div');
+            questEl.className = 'bg-zinc-900 p-3 rounded border border-zinc-700 mb-2';
+
+            let progressText = '';
+            if (quest.type === 'delivery') {
+                const currentAmount = this.game.player.inventory[quest.item] || 0;
+                const isReady = currentAmount >= quest.amount && this.game.currentLocation && this.game.currentLocation.id === quest.targetId;
+                progressText = `<div class="text-sm mt-1 ${isReady ? 'text-green-400' : 'text-zinc-400'}">Progress: ${currentAmount}/${quest.amount} ${GOODS[quest.item].name}</div>`;
+                if (this.game.currentLocation && this.game.currentLocation.id === quest.targetId) {
+                    progressText += `<div class="text-xs text-blue-400">You are at the target location.</div>`;
+                } else {
+                    const targetTown = this.game.locations.find(l => l.id === quest.targetId);
+                    progressText += `<div class="text-xs text-zinc-500">Target: ${targetTown ? targetTown.name : 'Unknown'}</div>`;
+                }
+            }
+
+            questEl.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <div>
+                        <div class="font-bold text-yellow-500">${quest.title}</div>
+                        <div class="text-sm text-zinc-300">${quest.description}</div>
+                        ${progressText}
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs text-yellow-600">${quest.rewardGold} Gold</div>
+                        <div class="text-xs text-purple-400">${quest.rewardRenown} Renown</div>
+                    </div>
+                </div>
+            `;
+            this.elements.questsList.appendChild(questEl);
+        });
     }
 
     updateKingdomsUI() {
@@ -637,6 +764,97 @@ class UIManager {
 
     closeKingdoms() {
         this.elements.kingdomsModal.classList.add('hidden');
+    }
+
+    openParty() {
+        this.updatePartyUI();
+        this.elements.partyModal.classList.remove('hidden');
+    }
+
+    closeParty() {
+        this.elements.partyModal.classList.add('hidden');
+    }
+
+    updatePartyUI() {
+        const player = this.game.player;
+        this.elements.partyCount.textContent = `${player.getPartySize()} / ${player.getMaxPartySize()}`;
+
+        // Calculate wages (simple sum of upkeep)
+        const wages = player.party.reduce((sum, t) => sum + (t.count * (TROOP_TYPES[t.type]?.upkeep || 0)), 0);
+        this.elements.partyWages.textContent = `${wages} G/day`;
+
+        this.elements.partyList.innerHTML = '';
+
+        player.party.forEach(troop => {
+            const type = troop.type;
+            const count = troop.count;
+            const xp = troop.xp || 0;
+            const data = TROOP_TYPES[type];
+
+            const itemEl = document.createElement('div');
+            itemEl.className = 'bg-zinc-900 p-3 rounded border border-zinc-700';
+
+            let upgradeHtml = '';
+            if (data.upgradeTo) {
+                const upgradeData = TROOP_TYPES[data.upgradeTo];
+                const xpNeeded = data.xpToUpgrade * count; // Total XP needed for stack? No, let's do per unit logic visual but stack logic actual
+                // Actually, we track XP per stack.
+                // Let's show a progress bar for the stack's readiness to upgrade ONE unit?
+                // Or just show "Ready to Upgrade: X"
+
+                const unitsReady = Math.floor(xp / data.xpToUpgrade);
+                const upgradeCost = (upgradeData.cost - data.cost) + 10;
+
+                upgradeHtml = `
+                    <div class="mt-2 pt-2 border-t border-zinc-800">
+                        <div class="flex justify-between text-xs text-zinc-400 mb-1">
+                            <span>XP: ${Math.floor(xp)}</span>
+                            <span>Next Upgrade: ${data.xpToUpgrade} XP/unit</span>
+                        </div>
+                        <div class="w-full bg-zinc-800 rounded-full h-2 mb-2">
+                            <div class="bg-yellow-600 h-2 rounded-full" style="width: ${Math.min(100, (xp / (data.xpToUpgrade * count)) * 100)}%"></div>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-yellow-500">Upgrade to ${upgradeData.name} (${upgradeCost} G)</span>
+                            <button class="upgrade-btn bg-green-700 hover:bg-green-600 text-white text-xs px-3 py-1 rounded disabled:opacity-50 disabled:cursor-not-allowed" 
+                                ${unitsReady > 0 && player.gold >= upgradeCost ? '' : 'disabled'}
+                                data-type="${type}" data-cost="${upgradeCost}">
+                                Upgrade (${Math.min(unitsReady, count)})
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            itemEl.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <div>
+                        <div class="font-bold text-zinc-200">${data.name}</div>
+                        <div class="text-xs text-zinc-500">Tier ${Math.floor(data.power / 2)} • ${data.type === 'cavalry' ? 'Cavalry' : 'Infantry'}</div>
+                    </div>
+                    <div class="text-xl font-bold text-white">${count}</div>
+                </div>
+                ${upgradeHtml}
+            `;
+
+            const upgradeBtn = itemEl.querySelector('.upgrade-btn');
+            if (upgradeBtn) {
+                upgradeBtn.addEventListener('click', () => {
+                    const unitsReady = Math.floor(xp / data.xpToUpgrade);
+                    const toUpgrade = Math.min(unitsReady, count); // Upgrade all ready units? Or just 1?
+                    // Let's upgrade 1 at a time for better control, or add a "Max" button later.
+                    // For now, let's upgrade 1.
+                    if (toUpgrade > 0) {
+                        if (player.upgradeTroop(type, 1)) {
+                            this.updatePlayerStats(player, this.game.currentDay);
+                            this.updatePartyUI();
+                        }
+                    }
+                });
+            }
+
+            this.elements.partyList.appendChild(itemEl);
+        });
     }
 
     leaveTown() {

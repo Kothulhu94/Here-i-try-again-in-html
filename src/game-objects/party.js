@@ -67,9 +67,64 @@ class Party {
         if (existingTroop) {
             existingTroop.count += count;
         } else {
-            this.party.push({ type, count });
+            this.party.push({ type, count, xp: 0 });
         }
         this.updateSpeed();
+    }
+
+    addXp(amount) {
+        // Distribute XP to all troops that can upgrade
+        const upgradableTroops = this.party.filter(t => TROOP_TYPES[t.type]?.upgradeTo);
+        if (upgradableTroops.length === 0) return;
+
+        // Simple distribution: split evenly among stacks (weighted by count could be better, but this is fine for now)
+        // Or better: give full amount to EACH stack? No, that's too much.
+        // Let's give amount * count to the stack? No.
+        // Let's say 'amount' is total XP earned by party.
+        // We split it based on troop count.
+
+        const totalTroops = this.getPartySize();
+        if (totalTroops === 0) return;
+
+        this.party.forEach(t => {
+            if (TROOP_TYPES[t.type]?.upgradeTo) {
+                // Each soldier gets a share of the XP
+                const share = (amount / totalTroops) * t.count;
+                t.xp = (t.xp || 0) + share;
+            }
+        });
+    }
+
+    upgradeTroop(type, count) {
+        const troopStack = this.party.find(t => t.type === type);
+        if (!troopStack || troopStack.count < count) return false;
+
+        const troopData = TROOP_TYPES[type];
+        if (!troopData.upgradeTo) return false;
+
+        const upgradeData = TROOP_TYPES[troopData.upgradeTo];
+        const upgradeCost = (upgradeData.cost - troopData.cost) + 10; // Simple cost formula: difference + fee
+
+        // Check XP
+        const xpNeeded = troopData.xpToUpgrade * count;
+        if ((troopStack.xp || 0) < xpNeeded) return false;
+
+        // Check Gold (if player)
+        if (this.partyType === 'player' && this.gold < upgradeCost * count) return false;
+
+        // Apply Upgrade
+        if (this.partyType === 'player') this.gold -= upgradeCost * count;
+
+        troopStack.count -= count;
+        troopStack.xp -= xpNeeded;
+
+        // Remove stack if empty
+        if (troopStack.count <= 0) {
+            this.party = this.party.filter(t => t !== troopStack);
+        }
+
+        this.addTroops(troopData.upgradeTo, count);
+        return true;
     }
 
     static removeTroops(party, losses) {

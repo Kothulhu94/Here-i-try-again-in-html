@@ -47,6 +47,7 @@ class Town extends Location {
         };
         this.activeProject = null;
         this.ownerId = null; // null means faction leader owns it
+        this.availableQuests = [];
     }
 
     dailyUpdate(game) {
@@ -155,7 +156,33 @@ class Town extends Location {
                 }
             }
         }
+
+        // Generate Quests
+        if (Math.random() < 0.3 && this.availableQuests.length < 3) {
+            const otherTowns = game.locations.filter(l => l.type === 'town' && l.id !== this.id);
+            if (otherTowns.length > 0) {
+                const target = otherTowns[Math.floor(Math.random() * otherTowns.length)];
+                const goods = Object.keys(GOODS).filter(g => GOODS[g].type !== 'military'); // Simple goods
+                const item = goods[Math.floor(Math.random() * goods.length)];
+                const amount = Math.floor(Math.random() * 5) + 1;
+                const rewardGold = amount * GOODS[item].basePrice * 2 + 100;
+
+                this.availableQuests.push({
+                    id: Date.now() + Math.random(),
+                    type: 'delivery',
+                    title: `Deliver ${amount} ${GOODS[item].name} to ${target.name}`,
+                    description: `${this.name} needs you to deliver ${amount} ${GOODS[item].name} to ${target.name}.`,
+                    item: item,
+                    amount: amount,
+                    targetId: target.id,
+                    rewardGold: rewardGold,
+                    rewardRenown: 5,
+                    status: 'active'
+                });
+            }
+        }
     }
+
 
     changeOwner(newFactionId, game) {
         this.factionId = newFactionId;
